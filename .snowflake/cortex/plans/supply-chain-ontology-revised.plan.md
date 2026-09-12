@@ -1,3 +1,9 @@
+---
+name: "supply-chain-ontology-revised"
+created: "2026-09-12T07:53:45.147Z"
+status: pending
+---
+
 # Supply Chain Ontology & Governed Conversational Analytics — Master Plan
 
 ## Naming Convention
@@ -5,17 +11,73 @@
 All fragmented source-system schemas use a `SOURCE_` prefix for consistency and easy identification: `SOURCE_ERP`, `SOURCE_LOGISTICS_TMS`, `SOURCE_SUPPLIER_PORTAL`, `SOURCE_IOT_SENSOR`, `SOURCE_FINANCE`.
 
 **Why `SEMANTIC_MODELS` and `AUTOMATION` stay as separate schemas (not folded into GOLD):**
-- `SEMANTIC_MODELS` is the governed business/consumption layer (semantic view, Cortex Search, Cortex Analyst) — separating it means agents/BI tools can be granted access to *this* schema only, without exposure to raw dimensional tables in GOLD. It also keeps the medallion story visually clean: `SHOW SCHEMAS` reads as BRONZE→SILVER→GOLD→SEMANTIC_MODELS, one schema per architectural layer.
+
+- `SEMANTIC_MODELS` is the governed business/consumption layer (semantic view, Cortex Search, Cortex Analyst) — separating it means agents/BI tools can be granted access to *this* schema only, without exposure to raw dimensional tables in GOLD. It also keeps the medallion story visually clean: `SHOW SCHEMAS` reads as BRONZE→SILVER→GOLD→SEMANTIC\_MODELS, one schema per architectural layer.
 - `AUTOMATION` holds operational state (Task-populated snapshots, alert history) — different in kind from canonical facts/dims, different grants (task-execution roles vs. read-only analytics roles), different lifecycle (logs, not a dimensional model). Keeping it separate avoids muddying GOLD's purpose.
+
+## Repo Structure (target state at submission)
+
+```
+snowflake-coco-cli-hackathon/
+├── .gitignore
+├── README.md                                 # setup, architecture diagram, demo instructions — write last
+│
+├── .snowflake/cortex/plans/
+│   └── supply-chain-ontology-revised.plan.md # planning-phase artifact (CoCo evidence)
+│
+├── sql/
+│   ├── 00_source_schemas/                    # Phase 0 — fragmentation
+│   │   ├── source_erp.sql
+│   │   ├── source_logistics_tms.sql
+│   │   ├── source_supplier_portal.sql
+│   │   ├── source_iot_sensor.sql
+│   │   └── source_finance.sql
+│   ├── 01_bronze/create_bronze_tables.sql            # Phase 1
+│   ├── 02_silver/                                    # Phase 2
+│   │   ├── create_silver_dynamic_tables.sql
+│   │   └── shipment_crosswalk.sql
+│   ├── 03_gold/create_gold_dynamic_tables.sql        # Phase 3
+│   ├── 04_semantic_view/supply_chain_ontology_semantic_view.sql  # Phase 4 (source of truth; drop semantic_models/*.yaml if redundant)
+│   └── 08_automation/tasks_and_alerts.sql            # Phase 8
+│
+├── data_generation/generate_synthetic_data.py        # CoCo-driven synthetic dataset generator
+├── semantic_models/supply_chain_ontology.yaml        # Cortex-Analyst-facing model (decide vs. native SEMANTIC VIEW during Phase 4)
+├── agents/agent_router.py                            # hybrid router, hooks, sub-agents (Phase 5)
+├── demo/inject_new_shipments.py                      # real-time injection demo (Phase 6)
+├── streamlit_app.py                                  # Before/After/Cross-persona/Ontology explorer (Phase 7)
+│
+├── skills/supply-chain-analyst-skill/                # reusable CoCo skill (Phase 10)
+│   ├── .cortex-plugin/plugin.json
+│   ├── skills/
+│   │   ├── analyze-supplier-performance.md
+│   │   ├── identify-at-risk-orders.md
+│   │   ├── run-what-if-scenario.md
+│   │   └── trace-root-cause.md
+│   └── README.md
+│
+└── tests/test_golden_questions.py                    # golden test suite (Phase 9)
+```
+
+Notes:
+
+- `sql/` is numbered by medallion phase so the architecture reads top-to-bottom by folder name alone.
+- `.snowflake/cortex/plans/` stays in the repo deliberately as literal CoCo-planning-phase evidence for judging.
+- Decide during Phase 4 whether `semantic_models/*.yaml` is kept alongside the native `SEMANTIC VIEW` SQL or dropped as redundant once the SQL object is the source of truth.
+- `skills/supply-chain-analyst-skill/` is a standalone installable unit (`cortex skill install ./skills/supply-chain-analyst-skill`).
+- `README.md` should be written/updated last, once the build stabilizes.
+
+---
 
 ## Headline Story (opens and closes the demo)
 
 ```
 Supplier ──ships──▶ Part ──delivered to──▶ Plant ──fulfills──▶ CustomerOrder ──placed by──▶ Customer
 ```
+
 Today, three teams ask "What's our on-time delivery rate?" against three real, disconnected systems and get three genuinely different, defensible-looking answers. We fix this by resolving the ontology once (Bronze→Silver→Gold→Semantic View) and proving — live, with generated SQL on screen — that every persona, phrased any way, now gets the identical answer.
 
 **Judging-criteria mapping (closing slide):**
+
 - **Real World Relevance** — fragmentation is modeled on genuine root causes (carrier buffers, dropped denominators, forecast-vs-actual, incomplete cost assembly), not arbitrary numbers.
 - **Technical Execution** — Dynamic Tables medallion architecture, native `SEMANTIC VIEW` with synonyms, entity-resolution crosswalk, hybrid multi-agent router with hooks, Tasks/automation.
 - **Solution Completeness** — fragmented sources → governed answer → conversational agent → real-time demo → automation/alerts → reusable skill → multi-surface deployment.
@@ -41,6 +103,7 @@ SUPPLY_CHAIN (Database)
 Four teams' real systems, each with a genuine definitional or data-quality flaw — not staged numbers.
 
 **Schemas & tables:**
+
 - `SOURCE_ERP.orders` (key: `erp_order_number`) — excludes cancelled/backorder rows from OTD denominator (inflates)
 - `SOURCE_LOGISTICS_TMS.deliveries` (key: `pro_number`) — 2-day carrier buffer baked into "promised date"; free-text supplier names (spelling variants) create a real entity-resolution problem
 - `SOURCE_SUPPLIER_PORTAL.shipments` (key: `asn_number`) — drops in-transit/currently-late shipments from denominator entirely
@@ -106,13 +169,15 @@ CREATE OR REPLACE TABLE SUPPLY_CHAIN.SOURCE_FINANCE.overhead_allocation (
 );
 ```
 
-**Synthetic data (generate via CoCo):** ~800 ground-truth physical shipments projected into 2-4 source tables each with deliberate ID divergence and completeness gaps, tuned so live legacy queries produce a believable spread per metric:
-- OTD: ERP ~90%, TMS ~93%, Supplier Portal ~78%, IoT ~84%
-- Fill Rate: Customer-facing ~91%, Supplier-facing PO fill ~85%, Unit-level ~88% (three different concepts, not just different numbers)
+**Synthetic data (generate via CoCo):** \~800 ground-truth physical shipments projected into 2-4 source tables each with deliberate ID divergence and completeness gaps, tuned so live legacy queries produce a believable spread per metric:
+
+- OTD: ERP \~90%, TMS \~93%, Supplier Portal \~78%, IoT \~84%
+- Fill Rate: Customer-facing \~91%, Supplier-facing PO fill \~85%, Unit-level \~88% (three different concepts, not just different numbers)
 - DOI: Planning (forecast) vs. Finance (COGS-based) vs. Warehouse (7-day trailing) — deliberately different methodologies
-- Landed Cost: Procurement (PO+quoted freight only) vs. Logistics (actual freight+customs, no purchase price) vs. Finance (full stack, ~1 month stale)
+- Landed Cost: Procurement (PO+quoted freight only) vs. Logistics (actual freight+customs, no purchase price) vs. Finance (full stack, \~1 month stale)
 
 **Entity resolution crosswalk (Silver):**
+
 ```sql
 CREATE OR REPLACE DYNAMIC TABLE SUPPLY_CHAIN.SILVER.shipment_crosswalk
 TARGET_LAG = '5 MINUTES' WAREHOUSE = COMPUTE_WH AS
@@ -132,6 +197,7 @@ LEFT JOIN SUPPLY_CHAIN.SOURCE_IOT_SENSOR.tracking_events i ON i.device_tag = e.e
 ```
 
 **The "legacy queries"** (run live in Streamlit's Before tab, per metric, with an expander showing SQL + plain-English "why it diverges"):
+
 ```sql
 -- OTD — Planning/ERP (excludes cancelled/backorder rows → inflated)
 SELECT ROUND(SUM(CASE WHEN actual_ship_date <= requested_ship_date THEN 1 ELSE 0 END)
@@ -176,7 +242,7 @@ FROM SUPPLY_CHAIN.SOURCE_LOGISTICS_TMS.deliveries t JOIN SUPPLY_CHAIN.SOURCE_LOG
 
 ## Phase 1-3: Medallion Layers for Remaining Entities (7h)
 
-- **Bronze**: unified raw landing for parts, plants, customer_orders, inventory, quality_events, invoices — source-shaped, VARIANT columns for semi-structured payloads (tracking_events, specifications, contact_info), `_metadata` OBJECT column, tagged by `source_system`.
+- **Bronze**: unified raw landing for parts, plants, customer\_orders, inventory, quality\_events, invoices — source-shaped, VARIANT columns for semi-structured payloads (tracking\_events, specifications, contact\_info), `_metadata` OBJECT column, tagged by `source_system`.
 - **Silver**: Dynamic Tables (`TARGET_LAG = '5 MINUTES'`), type-cast, deduplicated (`QUALIFY ROW_NUMBER()...=1`), VARIANT flattened, canonical `on_time_flag` applied via the ONE governance decision (plant-dock receipt as source of truth; backorders count as late, not dropped; no artificial buffers).
 - **Gold**: Dynamic Tables (`TARGET_LAG = '10 MINUTES'`) — `dim_supplier` (SCD2), `dim_part`, `dim_plant`, `dim_customer`, `dim_date`; `fact_shipment`, `fact_order_fulfillment`, `fact_inventory_snapshot`, `fact_quality_event`; `bridge_supplier_part`; `agg_supplier_performance` (pre-aggregated, `TARGET_LAG='15 MINUTES'`).
 - Synthetic data generated via CoCo prompts for referential integrity (500 suppliers, 2000 parts, 50 plants, 10,000 shipments, 20,000 orders, 5,000 quality events).
@@ -187,8 +253,8 @@ FROM SUPPLY_CHAIN.SOURCE_LOGISTICS_TMS.deliveries t JOIN SUPPLY_CHAIN.SOURCE_LOG
 
 ### Entities (9), Relationships, Hierarchies
 
-| Entity | Grain |
-|---|---|
+| Entity                                                                                     | Grain                                                                                                         |
+| ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
 | Supplier, Part, Plant, Shipment, CustomerOrder, Customer, Inventory, QualityEvent, Invoice | one row per supplier / SKU / facility / delivery / order-line / customer / part-plant-day / defect / cost-doc |
 
 Key relationships: Supplier↔Part (many-to-many via bridge), Shipment→Invoice (0-or-1 — the gap causing Landed Cost fragmentation), CustomerOrder→Part (the join path enabling at-risk-order queries).
@@ -244,6 +310,7 @@ Directly queryable for validation: `SELECT * FROM SEMANTIC_VIEW(SUPPLY_CHAIN.SEM
 **Validate with `reflect_semantic_model` before wiring to Cortex Analyst** — catches synonym collisions and dangling relationships.
 
 **Verified queries** (golden test questions, pointed at the resolved Gold layer):
+
 1. `at_risk_orders_due_to_supplier_delays`
 2. `what_if_supplier_delay` (parameterized: supplier + delay days)
 3. `root_cause_order_at_risk` (parameterized: order id) — this is the literal "walk the ontology chain" query for the headline story
@@ -257,12 +324,18 @@ Directly queryable for validation: `SELECT * FROM SEMANTIC_VIEW(SUPPLY_CHAIN.SEM
 ## Phase 5: Hybrid Multi-Agent Router (5h)
 
 `agents/agent_router.py`:
+
 - `PreQueryValidator` — entity/forbidden-term/length/language checks before any query runs
+
 - `PostQueryEnricher` — extracts supplier names from answers, pulls matching Cortex Search document snippets, appends as "Supporting Evidence"
-- `SupplyChainAgentRouter` — classifies intent (standard / document_qa / what_if / root_cause / at_risk) and routes to:
+
+- `SupplyChainAgentRouter` — classifies intent (standard / document\_qa / what\_if / root\_cause / at\_risk) and routes to:
+
   - Main Cortex Analyst (standard) — returns structured `{text, sql, confidence}`, not just narrative text, so we can display generated SQL and extract `base_table`/`measure_name` via `sqlglot` for the consistency-proof UI
   - `DocumentQAAgent`, `SimulationAgent` (what-if delay impact), `EvidenceTraceAgent` (root-cause evidence trail)
+
 - **Confidence-threshold fallback**: if Cortex Analyst confidence is low, respond "I'm not confident in this answer — here's what I found and why" instead of guessing
+
 - Sub-agents registered as callable tools/functions on the main agent, not just internal Python classes invoked by the router
 
 ---
@@ -278,6 +351,7 @@ Directly queryable for validation: `SELECT * FROM SEMANTIC_VIEW(SUPPLY_CHAIN.SEM
 **Tab 1 — Before (per-metric selector):** OTD / Fill Rate / DOI / Landed Cost, each running its real legacy queries live against Phase 0 source tables, each with an expander explaining *why* it diverges (data-quality bug / conceptual collision / methodology mismatch / incomplete assembly — four distinct failure modes).
 
 **Tab 2 — After, Cross-Persona Consistency Proof:** three parallel columns, three *differently-worded* persona questions:
+
 - Planning: "How are we tracking against planned delivery dates this quarter?"
 - Procurement: "What's our suppliers' on-time delivery performance?"
 - Logistics: "What percentage of shipments arrived on schedule?"
@@ -327,6 +401,7 @@ ALTER TASK SUPPLY_CHAIN.AUTOMATION.daily_health_snapshot RESUME;
 ## Phase 9: Testing & Validation (2h)
 
 `tests/test_golden_questions.py`:
+
 - `test_at_risk_orders_query`, `test_what_if_scenario`, `test_root_cause_trace`
 - `test_cross_persona_consistency_different_phrasing` — asserts same value AND same `base_table`/`measure_name` across 3 differently-worded questions
 - `test_business_language_resolves_without_raw_identifiers` — asserts "Are we hitting our delivery dates?" resolves to `on_time_delivery_rate` with no raw column names leaking into the generated SQL surfaced to the user
@@ -369,6 +444,7 @@ ALTER TASK SUPPLY_CHAIN.AUTOMATION.daily_health_snapshot RESUME;
 17. Delete the stale `supply-chain-ontology-hackathon.plan.md` (superseded, pre-revision draft)
 
 ## Priority Tiers (if time-constrained)
+
 - **P1 (must-have):** Tasks 1-13 — fully answers every literal challenge requirement
 - **P2 (should-have):** Task 14 — required for full CoCo-usage guideline credit
 - **P3 (nice-to-have):** Tasks 15-16 — ingenuity bonus points
