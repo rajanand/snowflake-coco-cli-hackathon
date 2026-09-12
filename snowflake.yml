@@ -1,0 +1,15 @@
+definition_version: 2
+entities:
+  supply_chain_ontology_app:
+    type: streamlit
+    identifier:
+      name: SUPPLY_CHAIN_ONTOLOGY_APP
+      database: SUPPLY_CHAIN
+      schema: SEMANTIC_MODELS
+    query_warehouse: COMPUTE_WH
+    runtime_name: SYSTEM$ST_CONTAINER_RUNTIME_PY3_11
+    compute_pool: SYSTEM_COMPUTE_POOL_CPU
+    main_file: streamlit_app.py
+    artifacts:
+      - streamlit_app.py
+      - .streamlit/config.toml

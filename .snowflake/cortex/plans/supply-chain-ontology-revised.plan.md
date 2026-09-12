@@ -6,6 +6,36 @@ status: pending
 
 # Supply Chain Ontology & Governed Conversational Analytics — Master Plan
 
+## ⚠️ Official Rules Compliance (read first — gates judging, must not miss)
+
+Source: Snowflake CoCo CLI Hackathon for GCCs — Official Rules. Submission deadline **Sept 21, 2026** (Judging Period). Solo entry (Team Lead = only participant) — Section 4.1 profile (name, corporate email, phone, location) still required at submission, just for one person.
+
+**Technical compliance gate (Section 9) — fails these = automatic disqualification before judging even starts:**
+- [ ] Solution is built **natively on Snowflake's AI Data Cloud** (medallion + Cortex + Semantic View — already the plan's core; keep everything inside `SUPPLY_CHAIN` DB, no external DBs).
+- [ ] Source code is written in **Python, Java, and/or Scala** — `agents/`, `data_generation/`, `streamlit_app.py`, `demo/` are Python ✅. SQL alone does not count as the required language; keep the Python surfaces in scope, do not cut them as stretch-only.
+- [ ] All Section 4.1 + 4.5 deliverables submitted before the deadline (see checklist below) — a complete Prototype with a missing deck or missing repo link is still an incomplete Entry.
+
+**Entry deliverables (Section 4.1, 4.5) — new Phase 12 below tracks these explicitly:**
+1. Profile info (name, corporate email, phone, location) — submission-portal form, not a repo artifact.
+2. The explicit **Idea** — a short written concept doc (`docs/idea-one-pager.md`), separate from the code.
+3. Functional **Prototype** (this repo).
+4. **Architectural presentation deck** (PPT/slides) covering idea, technical approach, system design topology, thought process.
+5. Link to full source code via a functional GitHub repo (this repo, made public or judge-accessible before deadline).
+
+**Judging Criteria — the ACTUAL 4 dimensions (Section 9), replacing any prior informal mapping:**
+1. **Platform Execution & Rigor** — depth of Snowpark, Streamlit, Snowflake Intelligence, Worksheets, Marketplace usage in the *operational pipeline* (not just name-dropped). Current plan is strong on Dynamic Tables/Semantic View/Cortex but is missing an explicit **Marketplace** touchpoint and a visible **Worksheets** artifact — both added below.
+2. **System Design & Engineering** — structural partitioning (medallion layering ✅), API interactions (agent router ✅), **token management**, and warehouse/compute performance optimization — token/cost tracking added below (was not explicit before).
+3. **Enterprise Viability & Value** — real-world friction points, time-to-insight, multi-step workflow automation — already the headline story's strength (ontology fragmentation → governed answer).
+4. **Governance & Security Guardrails** — RBAC, data privacy, **LLM hallucination mitigation** — Phase 0 governance tags/classification/DMFs are a good start, but RBAC is currently a single admin role; least-privilege role separation is added below, plus explicit hallucination-mitigation framing.
+
+**Dataset & IP compliance (Section 4.3–4.4, 4.4e):**
+- All data is 100% synthetic, generated via CoCo — **no real or proprietary GCC corporate data is used anywhere** in this project. State this explicitly in the final `README.md` and the Idea one-pager (Section 4.4(e) explicitly bars unauthorized use of employer production data — this must be an affirmative, visible statement, not an assumption).
+- No external/third-party datasets or APIs are currently used. If Phase 4.5 (Marketplace enrichment, added below) pulls a public Marketplace/API dataset, list it explicitly with its license in the README per Section 4.3(b)/4.4.
+
+**Live demo (Section 4.5(c)):** must be a **live** demonstration during the Grand Finale window (Oct 1–4, 2026) if shortlisted — pre-recorded not accepted without explicit approval. Rehearse the Streamlit demo end-to-end against a live Snowflake connection, not screenshots/video. Have a fallback (e.g. local warehouse pre-warmed, backup network) since Sponsor is not responsible for the presenter's connectivity issues.
+
+---
+
 ## Naming Convention
 
 All fragmented source-system schemas use a `SOURCE_` prefix for consistency and easy identification: `SOURCE_ERP`, `SOURCE_LOGISTICS_TMS`, `SOURCE_SUPPLIER_PORTAL`, `SOURCE_IOT_SENSOR`, `SOURCE_FINANCE`.
@@ -20,13 +50,18 @@ All fragmented source-system schemas use a `SOURCE_` prefix for consistency and 
 ```
 snowflake-coco-cli-hackathon/
 ├── .gitignore
-├── README.md                                 # setup, architecture diagram, demo instructions — write last
+├── README.md                                 # setup, architecture diagram, demo instructions, dataset/license + synthetic-data disclosure — write last
 │
 ├── .snowflake/cortex/plans/
 │   └── supply-chain-ontology-revised.plan.md # planning-phase artifact (CoCo evidence)
 │
+├── docs/
+│   ├── idea-one-pager.md                     # Entry Section 4.1(b) — the explicit Idea (Phase 12)
+│   └── architecture-deck.pptx                # Entry Section 4.5(a) — architectural presentation deck (Phase 12)
+│
 ├── sql/
 │   ├── 00_source_schemas/                    # Phase 0 — fragmentation
+│   │   ├── 00_setup_role.sql                 # SUPPLY_CHAIN_ADMIN + least-privilege role split (Phase 0 RBAC)
 │   │   ├── source_erp.sql
 │   │   ├── source_logistics_tms.sql
 │   │   ├── source_supplier_portal.sql
@@ -38,6 +73,7 @@ snowflake-coco-cli-hackathon/
 │   │   └── shipment_crosswalk.sql
 │   ├── 03_gold/create_gold_dynamic_tables.sql        # Phase 3
 │   ├── 04_semantic_view/supply_chain_ontology_semantic_view.sql  # Phase 4 (source of truth; drop semantic_models/*.yaml if redundant)
+│   ├── 04_semantic_view/worksheet_legacy_queries.sql # Phase 4.5 — saved Worksheet artifact for judges
 │   └── 08_automation/tasks_and_alerts.sql            # Phase 8
 │
 ├── data_generation/generate_synthetic_data.py        # CoCo-driven synthetic dataset generator
@@ -55,7 +91,7 @@ snowflake-coco-cli-hackathon/
 │   │   └── trace-root-cause.md
 │   └── README.md
 │
-└── tests/test_golden_questions.py                    # golden test suite (Phase 9)
+└── tests/test_golden_questions.py                    # golden test suite (Phase 9); also token/cost usage check
 ```
 
 Notes:
@@ -76,11 +112,12 @@ Supplier ──ships──▶ Part ──delivered to──▶ Plant ──fulfi
 
 Today, three teams ask "What's our on-time delivery rate?" against three real, disconnected systems and get three genuinely different, defensible-looking answers. We fix this by resolving the ontology once (Bronze→Silver→Gold→Semantic View) and proving — live, with generated SQL on screen — that every persona, phrased any way, now gets the identical answer.
 
-**Judging-criteria mapping (closing slide):**
+**Judging-criteria mapping (closing slide — use the official 4 dimensions, Section 9):**
 
-- **Real World Relevance** — fragmentation is modeled on genuine root causes (carrier buffers, dropped denominators, forecast-vs-actual, incomplete cost assembly), not arbitrary numbers.
-- **Technical Execution** — Dynamic Tables medallion architecture, native `SEMANTIC VIEW` with synonyms, entity-resolution crosswalk, hybrid multi-agent router with hooks, Tasks/automation.
-- **Solution Completeness** — fragmented sources → governed answer → conversational agent → real-time demo → automation/alerts → reusable skill → multi-surface deployment.
+- **Platform Execution & Rigor** — Dynamic Tables medallion pipeline (Snowpark-adjacent SQL engineering), Streamlit demo app, Cortex Analyst/Search as the Snowflake Intelligence surface, a saved **Worksheet** with the four legacy "Before" queries for judges to open directly in Snowsight, and a **Marketplace**-sourced dataset enriching the what-if simulation (Phase 4.5).
+- **System Design & Engineering** — medallion layering, entity-resolution crosswalk, hybrid multi-agent router with hooks, explicit **token/cost tracking** and right-sized warehouses (Phase 9).
+- **Enterprise Viability & Value** — fragmentation modeled on genuine root causes (carrier buffers, dropped denominators, forecast-vs-actual, incomplete cost assembly) resolved into one governed answer, automating a real multi-step workflow (at-risk-order detection → alerting).
+- **Governance & Security Guardrails** — governance tags/classification/DMFs (Phase 0), least-privilege RBAC role separation (added below), confidence-threshold fallback + verified queries as hallucination mitigation (Phase 5).
 
 ---
 
@@ -238,6 +275,35 @@ SELECT t.pro_number, fi.freight_cost + fi.customs_duty AS shipment_cost_logistic
 FROM SUPPLY_CHAIN.SOURCE_LOGISTICS_TMS.deliveries t JOIN SUPPLY_CHAIN.SOURCE_LOGISTICS_TMS.freight_invoices fi ON t.pro_number = fi.pro_number;
 ```
 
+**RBAC & least-privilege roles (Governance & Security Guardrails criterion — do not ship with a single admin role):**
+
+The existing `sql/00_source_schemas/00_setup_role.sql` only creates `SUPPLY_CHAIN_ADMIN`. Add a small role hierarchy so grants map to actual access patterns, and so the RBAC story is demonstrable, not just "everything is ACCOUNTADMIN":
+
+```sql
+-- Owns all objects, runs DDL/build scripts (human/build-time role)
+CREATE ROLE IF NOT EXISTS SUPPLY_CHAIN_ADMIN;
+
+-- Read-only, scoped to SEMANTIC_MODELS + GOLD only — the role Cortex Analyst/Agent/Streamlit
+-- app connects as. Cannot see SOURCE_*/BRONZE fragmented raw data or run DDL.
+CREATE ROLE IF NOT EXISTS SUPPLY_CHAIN_ANALYST_RO;
+GRANT USAGE ON DATABASE SUPPLY_CHAIN TO ROLE SUPPLY_CHAIN_ANALYST_RO;
+GRANT USAGE ON SCHEMA SUPPLY_CHAIN.SEMANTIC_MODELS TO ROLE SUPPLY_CHAIN_ANALYST_RO;
+GRANT USAGE ON SCHEMA SUPPLY_CHAIN.GOLD TO ROLE SUPPLY_CHAIN_ANALYST_RO;
+GRANT SELECT ON ALL TABLES IN SCHEMA SUPPLY_CHAIN.GOLD TO ROLE SUPPLY_CHAIN_ANALYST_RO;
+GRANT SELECT ON SEMANTIC VIEW SUPPLY_CHAIN.SEMANTIC_MODELS.SUPPLY_CHAIN_ONTOLOGY TO ROLE SUPPLY_CHAIN_ANALYST_RO;
+
+-- Executes scheduled Tasks only — separate from the human admin role
+CREATE ROLE IF NOT EXISTS SUPPLY_CHAIN_TASK_EXECUTOR;
+GRANT USAGE ON DATABASE SUPPLY_CHAIN TO ROLE SUPPLY_CHAIN_TASK_EXECUTOR;
+GRANT USAGE ON SCHEMA SUPPLY_CHAIN.AUTOMATION TO ROLE SUPPLY_CHAIN_TASK_EXECUTOR;
+GRANT SELECT, INSERT ON ALL TABLES IN SCHEMA SUPPLY_CHAIN.AUTOMATION TO ROLE SUPPLY_CHAIN_TASK_EXECUTOR;
+GRANT SELECT ON SEMANTIC VIEW SUPPLY_CHAIN.SEMANTIC_MODELS.SUPPLY_CHAIN_ONTOLOGY TO ROLE SUPPLY_CHAIN_TASK_EXECUTOR;
+```
+
+- Streamlit app and the agent router connect using `SUPPLY_CHAIN_ANALYST_RO` — proves the app can never see raw fragmented/PII-adjacent source data, only the governed layer.
+- Document this role split in the README's "Governance" section with a one-paragraph rationale — this is the single most visible, cheapest-to-build proof point for the Governance & Security Guardrails judging dimension.
+- Optional stretch (only if time remains): a `DYNAMIC DATA MASKING POLICY` on `GOLD.fact_shipment.shipment_value`/cost columns, unmasked only for `SUPPLY_CHAIN_ADMIN` — a concrete masking demo beyond just role grants, cheap to add and highly visible to judges scanning for "governance."
+
 ---
 
 ## Phase 1-3: Medallion Layers for Remaining Entities (7h)
@@ -319,6 +385,11 @@ Directly queryable for validation: `SELECT * FROM SEMANTIC_VIEW(SUPPLY_CHAIN.SEM
 
 **Cortex Analyst** deployed on this semantic view with a system prompt enforcing canonical-definition usage and persona-aware framing without changing which measure is queried.
 
+### Phase 4.5: Marketplace + Worksheets touchpoints (Platform Execution & Rigor criterion — currently missing, cheap to add)
+
+- **Snowflake Marketplace**: pull one small, free public dataset (e.g. a weather/climate or public holiday-calendar listing) and join it into the what-if `SimulationAgent` — e.g. "suppliers in regions with active weather disruptions are higher at-risk" — a light but genuine Marketplace-sourced enrichment, not just a namecheck. List the listing name + license in the README per Section 4.3(b)/4.4.
+- **Worksheets**: save the four Phase 0 legacy "Before" queries plus the semantic-view validation query (`SELECT * FROM SEMANTIC_VIEW(...)`) as a named Snowsight Worksheet (or `.sql` script importable as one) — gives judges a concrete, screenshot-able Worksheets artifact rather than relying only on the Streamlit app.
+
 ---
 
 ## Phase 5: Hybrid Multi-Agent Router (5h)
@@ -337,6 +408,13 @@ Directly queryable for validation: `SELECT * FROM SEMANTIC_VIEW(SUPPLY_CHAIN.SEM
 - **Confidence-threshold fallback**: if Cortex Analyst confidence is low, respond "I'm not confident in this answer — here's what I found and why" instead of guessing
 
 - Sub-agents registered as callable tools/functions on the main agent, not just internal Python classes invoked by the router
+
+**Hallucination-mitigation summary (Governance & Security criterion — call this out explicitly in the deck, don't leave it implicit):**
+1. Verified queries (golden questions) constrain the agent to pre-validated SQL patterns for the highest-stakes questions.
+2. Semantic view synonyms + metric `COMMENT`s constrain vocabulary so the LLM maps business language to one canonical measure, not an improvised aggregation.
+3. `PreQueryValidator` blocks out-of-scope/forbidden-term prompts before they reach the LLM.
+4. Confidence-threshold fallback refuses to answer rather than guess when uncertain.
+5. `PostQueryEnricher` grounds narrative claims in retrieved Cortex Search document snippets (citations), not free generation.
 
 ---
 
@@ -407,6 +485,12 @@ ALTER TASK SUPPLY_CHAIN.AUTOMATION.daily_health_snapshot RESUME;
 - `test_business_language_resolves_without_raw_identifiers` — asserts "Are we hitting our delivery dates?" resolves to `on_time_delivery_rate` with no raw column names leaking into the generated SQL surfaced to the user
 - Run `reflect_semantic_model` and the `sql-verify` sub-agent on all verified-query SQL before demo day
 
+**Token management & compute cost (System Design & Engineering criterion — add explicit tracking, not just "it works"):**
+- Right-size warehouses: `COMPUTE_WH` at `X-SMALL` with `AUTO_SUSPEND = 60` for this workload's volume — call this out in the deck as a deliberate cost decision, not a default left untouched.
+- Track Cortex Analyst/Search token spend via `SNOWFLAKE.ACCOUNT_USAGE.CORTEX_FUNCTIONS_QUERY_USAGE_HISTORY` (or `CORTEX_FUNCTIONS_USAGE_HISTORY`) — add a small query/snippet in `tests/` or the README showing token usage per demo session, so "token management" is evidenced with a real number, not asserted.
+- Note the $400 trial credit budget explicitly in the README and keep a rough running total (medallion Dynamic Table refreshes + Cortex Analyst calls + Cortex Search embeddings) so the account doesn't run dry before the Grand Finale live demo.
+- Query result caching: keep the four legacy "Before" queries simple/cacheable so repeated demo runs don't burn unnecessary credits.
+
 ---
 
 ## Phase 10: Custom CoCo Skill (1h)
@@ -420,6 +504,19 @@ ALTER TASK SUPPLY_CHAIN.AUTOMATION.daily_health_snapshot RESUME;
 1. CoCo CLI/Desktop — the build/test surface throughout
 2. **Snowsight Cloud Agent** — register the same Cortex Analyst + semantic view as a Snowflake Intelligence object
 3. **Slackbot** (stretch) — `@mention` the bot and get the same governed answer
+
+---
+
+## Phase 12: Submission Package (Official Rules Section 4.1/4.5 — mandatory, not stretch)
+
+These are Entry deliverables that gate whether the compliance review even lets this Entry reach judging (Section 9). None of this is optional, and none of it is a code task — schedule it explicitly rather than assuming it happens by osmosis at the end.
+
+1. **Idea one-pager** (`docs/idea-one-pager.md`) — problem statement, the fragmentation story, why it matters for a GCC context, solution summary. This is Section 4.1(b)'s "explicit Idea", separate from the Prototype itself.
+2. **Architectural presentation deck** (PPT/Slides, Section 4.5(a)) — idea, technical approach (medallion + semantic view + agent router), system design topology diagram (reuse the Supplier→Part→Plant→Order→Customer ontology diagram), thought process/decisions (canonical `on_time_flag` governance call-out is a good concrete example to feature). Explicitly label a slide (or section) per judging dimension (Platform Execution & Rigor / System Design & Engineering / Enterprise Viability & Value / Governance & Security Guardrails) so judges can map the deck to their scorecard without hunting.
+3. **README.md rewrite** (currently a placeholder) — setup instructions, architecture diagram, demo instructions, the explicit "100% synthetic data, no proprietary GCC data" statement (Section 4.4(e)), and the dataset/license list (Section 4.3(b)/4.4) covering any Marketplace dataset added in Phase 4.5.
+4. **GitHub repo readiness** (Section 4.5(b)) — confirm repo is public or judge-accessible before Sept 21, 2026; remove/redact any real credentials, account identifiers, or trial-account secrets from committed files and git history.
+5. **Profile submission** (Section 4.1(a)) — name, corporate email, phone, location — submitted via the official Contest portal (solo entry, Team Lead = self), not a repo artifact.
+6. **Live-demo rehearsal** (Section 4.5(c)/(d)) — full run-through of the Streamlit app against a live Snowflake connection (not a recording); confirm Dynamic Table refresh timing works live for Phase 6's before/after moment; have a backup plan for network/connectivity issues, since Sponsor is not responsible for presenter-side technical failures.
 
 ---
 
@@ -442,9 +539,14 @@ ALTER TASK SUPPLY_CHAIN.AUTOMATION.daily_health_snapshot RESUME;
 15. Package the custom CoCo skill
 16. (Stretch) Deploy to Snowsight Cloud Agent + Slackbot
 17. Delete the stale `supply-chain-ontology-hackathon.plan.md` (superseded, pre-revision draft)
+18. Add least-privilege RBAC role split (`SUPPLY_CHAIN_ANALYST_RO`, `SUPPLY_CHAIN_TASK_EXECUTOR`) — Streamlit/agent connects as read-only, not admin
+19. Add Marketplace-sourced dataset enrichment + save a Snowsight Worksheet with the legacy "Before" queries (Phase 4.5)
+20. Add token/cost tracking query + right-sized warehouse note (Phase 9)
+21. Write Idea one-pager, architecture deck, and rewritten README; confirm repo is judge-accessible and free of secrets (Phase 12)
+22. Submit profile + Entry via the official Contest portal before Sept 21, 2026 11:59 PM IST
 
 ## Priority Tiers (if time-constrained)
 
-- **P1 (must-have):** Tasks 1-13 — fully answers every literal challenge requirement
-- **P2 (should-have):** Task 14 — required for full CoCo-usage guideline credit
+- **P1 (must-have — also compliance-gating, not just feature-complete):** Tasks 1-13, 18, 21, 22 — fully answers every literal challenge requirement AND satisfies the Section 4/9 compliance review that happens before judging even starts. Missing 21/22 risks disqualification regardless of how good the Prototype is.
+- **P2 (should-have):** Tasks 14, 19, 20 — required for full CoCo-usage guideline credit and directly targets the "Platform Execution & Rigor" (Marketplace/Worksheets) and "System Design & Engineering" (token management) judging dimensions that the original plan under-served.
 - **P3 (nice-to-have):** Tasks 15-16 — ingenuity bonus points

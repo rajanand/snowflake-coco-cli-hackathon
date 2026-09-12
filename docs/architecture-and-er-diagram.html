@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="snowflake-source" content="cortex-agent-authored" />
+  <title>Supply Chain Ontology — Architecture &amp; ER Diagram</title>
+  <script type="application/json" id="snowflake-report-metadata">
+  {
+    "generated": "2026-09-12",
+    "intent": "Visualize the medallion architecture and entity-relationship model for the SUPPLY_CHAIN database, per .snowflake/cortex/plans/supply-chain-ontology-revised.plan.md",
+    "dataSources": [
+      { "type": "file", "path": ".snowflake/cortex/plans/supply-chain-ontology-revised.plan.md" },
+      { "type": "file", "path": "sql/00_source_schemas/00_setup_role.sql" },
+      { "type": "file", "path": "sql/00_source_schemas/README.md" },
+      { "type": "file", "path": "sql/01_bronze/README.md" }
+    ],
+    "sections": [
+      { "id": "architecture", "title": "Medallion architecture",
+        "producerNotes": "Layers and phases transcribed from the plan's 'Database Structure' and 'Repo Structure' sections. BRONZE is implemented; SILVER/GOLD/SEMANTIC_MODELS/AUTOMATION are planned (status: pending)." },
+      { "id": "er-diagram", "title": "Entity-relationship diagram (Gold layer ontology)",
+        "producerNotes": "Entities, grains, and relationships transcribed from the plan's Phase 4 'Entities / Relationships / Hierarchies' section and the native SEMANTIC VIEW DDL." }
+    ]
+  }
+  </script>
+  <style>
+    :root { color-scheme: light dark; }
+    body {
+      font-family: -apple-system, system-ui, sans-serif;
+      max-width: 1000px; width: 100%; box-sizing: border-box;
+      margin: 0 auto; padding: clamp(16px, 4vw, 24px);
+      color: light-dark(#1f2937, #e5e7eb);
+      line-height: 1.5;
+    }
+    h1, h2, h3 { color: light-dark(#0f172a, #f1f5f9); }
+    h1 { font-size: 1.6rem; margin-bottom: 4px; }
+    .subtitle { color: light-dark(#6b7280, #9ca3af); margin-top: 0; }
+    a { color: light-dark(#2563eb, #60a5fa); }
+    img, svg { max-width: 100%; height: auto; }
+    .card {
+      border: 1px solid light-dark(#e5e7eb, #374151);
+      border-radius: 10px;
+      padding: clamp(12px, 3vw, 20px);
+      margin: 20px 0;
+      background: light-dark(#fafafa, #111827);
+      overflow-x: auto;
+    }
+    .badge {
+      display: inline-block; font-size: 0.72rem; font-weight: 600;
+      padding: 2px 8px; border-radius: 999px; margin-left: 6px;
+      text-transform: uppercase; letter-spacing: 0.03em;
+    }
+    .badge-done { background: light-dark(#dcfce7, #14532d); color: light-dark(#166534, #bbf7d0); }
+    .badge-pending { background: light-dark(#fef3c7, #78350f); color: light-dark(#92400e, #fde68a); }
+    .legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: 0.85rem; margin: 8px 0 0; color: light-dark(#4b5563, #9ca3af); }
+    .table-wrap { overflow-x: auto; margin: 12px 0; }
+    table { border-collapse: collapse; width: 100%; font-size: 0.88rem; }
+    th, td { border: 1px solid light-dark(#d1d5db, #374151); padding: 6px 10px; text-align: left; vertical-align: top; }
+    th { background: light-dark(#f3f4f6, #1f2937); font-weight: 600; }
+    code { background: light-dark(#f1f5f9, #1e293b); padding: 1px 5px; border-radius: 4px; font-size: 0.85em; }
+    .mermaid { font-size: 15px; }
+  </style>
+</head>
+<body>
+
+  <h1>Supply Chain Ontology — Architecture &amp; ER Diagram</h1>
+  <p class="subtitle">SUPPLY_CHAIN database · generated from <code>.snowflake/cortex/plans/supply-chain-ontology-revised.plan.md</code></p>
+
+  <h2 id="architecture">Medallion architecture</h2>
+  <p>
+    Five fragmented source systems land into a unified <code>BRONZE</code> layer, are resolved into one
+    canonical <code>SILVER</code> layer (entity resolution + governance-approved metric definitions), modeled
+    dimensionally in <code>GOLD</code>, exposed as a governed <code>SEMANTIC_MODELS</code> layer, and operationalized
+    via <code>AUTOMATION</code>. Consumption happens through a hybrid agent router, Streamlit, and (stretch) Snowsight /
+    Slack.
+  </p>
+  <div class="legend">
+    <span><span class="badge badge-done">Built</span> BRONZE and Phase 0 sources</span>
+    <span><span class="badge badge-pending">Planned</span> SILVER → AUTOMATION and consumption layers</span>
+  </div>
+
+  <div class="card">
+    <pre class="mermaid">
+flowchart TB
+  subgraph P0["Phase 0 — Fragmented Source Systems"]
+    direction LR
+    ERP["SOURCE_ERP\norders, demand_forecast"]
+    TMS["SOURCE_LOGISTICS_TMS\ndeliveries, pick_operations,\nfreight_invoices"]
+    SUP["SOURCE_SUPPLIER_PORTAL\nshipments, purchase_orders,\nfreight_quotes"]
+    IOT["SOURCE_IOT_SENSOR\ntracking_events"]
+    FIN["SOURCE_FINANCE\ndaily_cogs, overhead_allocation"]
+  end
+
+  subgraph P1["Phase 1 — BRONZE (unified raw landing)"]
+    BRZ["17 tables\nRAW_PAYLOAD VARIANT + _METADATA\n(11 ingested + 6 net-new)"]
+  end
+
+  subgraph P2["Phase 2 — SILVER (canonical, Dynamic Tables)"]
+    XWALK["shipment_crosswalk\n(entity resolution: fuzzy supplier match,\ndate-proximity join)"]
+    SLV["Type-cast, deduplicated,\none governance-approved\nmetric definition per KPI"]
+  end
+
+  subgraph P3["Phase 3 — GOLD (dimensional model, Dynamic Tables)"]
+    DIMS["dim_supplier (SCD2), dim_part,\ndim_plant, dim_customer, dim_date"]
+    FACTS["fact_shipment, fact_order_fulfillment,\nfact_inventory_snapshot, fact_quality_event"]
+    BRIDGE["bridge_supplier_part"]
+    AGG["agg_supplier_performance"]
+  end
+
+  subgraph P4["Phase 4 — SEMANTIC_MODELS (governed consumption)"]
+    SV["SEMANTIC VIEW\nSUPPLY_CHAIN_ONTOLOGY\n(facts, dims, metrics, synonyms)"]
+    CS["Cortex Search\nsupply_chain_documents"]
+    CA["Cortex Analyst"]
+  end
+
+  subgraph P8["Phase 8 — AUTOMATION"]
+    TASKS["Tasks: refresh_at_risk_orders,\ndaily_health_snapshot"]
+    ALERTS["at_risk_orders_snapshot,\ndaily_health_metrics"]
+    NOTIF["Notification Integration\n/ MCP Slack alert"]
+  end
+
+  subgraph CONSUME["Consumption Surfaces"]
+    ROUTER["Hybrid Agent Router\n(pre/post-query hooks,\nsub-agents, confidence fallback)"]
+    ST["Streamlit App\n(Before / After / Zero-ID / Explorer)"]
+    SNOW["Snowsight Cloud Agent"]
+    SLACK["Slackbot (stretch)"]
+  end
+
+  ERP --> BRZ
+  TMS --> BRZ
+  SUP --> BRZ
+  IOT --> BRZ
+  FIN --> BRZ
+
+  BRZ --> XWALK --> SLV
+  SLV --> DIMS
+  SLV --> FACTS
+
+  DIMS --> SV
+  FACTS --> SV
+  BRIDGE --> SV
+  AGG --> SV
+
+  SV --> CA
+  CS --> CA
+  SV --> TASKS
+  TASKS --> ALERTS --> NOTIF
+
+  CA --> ROUTER
+  ROUTER --> ST
+  ROUTER --> SNOW
+  ROUTER --> SLACK
+
+  classDef done fill:#dcfce7,stroke:#166534,color:#14532d;
+  classDef pending fill:#fef3c7,stroke:#92400e,color:#78350f,stroke-dasharray: 4 3;
+  class ERP,TMS,SUP,IOT,FIN,BRZ done;
+  class XWALK,SLV,DIMS,FACTS,BRIDGE,AGG,SV,CS,CA,TASKS,ALERTS,NOTIF,ROUTER,ST,SNOW,SLACK pending;
+    </pre>
+  </div>
+
+  <h2 id="er-diagram">Entity-relationship diagram (Gold layer ontology)</h2>
+  <p>
+    Nine business entities from the plan's Phase 4 ontology, modeled at their Gold-layer grain.
+    <code>Shipment → Invoice</code> is deliberately 0-or-1 — that gap is the root cause of the Landed Cost
+    metric fragmentation in the headline demo.
+  </p>
+
+  <div class="card">
+    <pre class="mermaid">
+erDiagram
+  SUPPLIER {
+    string supplier_id PK
+    string supplier_name
+    string tier_name
+    string region
+    date   scd_effective_date
+    date   scd_end_date
+  }
+  PART {
+    string part_id PK
+    string sku
+    string category
+    number unit_cost
+  }
+  PLANT {
+    string plant_id PK
+    string plant_code
+    string country
+    string region
+  }
+  CUSTOMER {
+    string customer_id PK
+    string customer_name
+    string customer_segment
+  }
+  SUPPLIER_PART {
+    string supplier_id FK
+    string part_id FK
+  }
+  SHIPMENT {
+    string shipment_id PK
+    string supplier_id FK
+    string part_id FK
+    string plant_id FK
+    string canonical_shipment_id
+    date   plant_dock_receipt_date
+    boolean on_time_flag
+    number value_usd
+  }
+  INVOICE {
+    string invoice_number PK
+    string shipment_id FK
+    number freight_cost
+    number customs_duty
+    date   invoice_date
+  }
+  CUSTOMER_ORDER {
+    string customer_order_id PK
+    string customer_id FK
+    string part_id FK
+    number qty_ordered
+    number qty_shipped
+    boolean on_time_flag
+  }
+  INVENTORY_SNAPSHOT {
+    string part_id FK
+    string plant_id FK
+    date   snapshot_date
+    number current_stock
+    number inventory_value
+  }
+  QUALITY_EVENT {
+    string quality_event_id PK
+    string part_id FK
+    date   event_date
+    string defect_type
+  }
+
+  SUPPLIER ||--o{ SUPPLIER_PART : "supplies"
+  PART ||--o{ SUPPLIER_PART : "sourced via"
+  SUPPLIER ||--o{ SHIPMENT : "ships"
+  PART ||--o{ SHIPMENT : "is shipped in"
+  PLANT ||--o{ SHIPMENT : "receives"
+  SHIPMENT ||--o| INVOICE : "billed by (0-or-1)"
+  CUSTOMER ||--o{ CUSTOMER_ORDER : "places"
+  PART ||--o{ CUSTOMER_ORDER : "ordered as"
+  PART ||--o{ INVENTORY_SNAPSHOT : "tracked as"
+  PLANT ||--o{ INVENTORY_SNAPSHOT : "stores"
+  PART ||--o{ QUALITY_EVENT : "flagged by"
+    </pre>
+  </div>
+
+  <h3>Grain reference</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Entity</th><th>Grain</th></tr></thead>
+      <tbody>
+        <tr><td>Supplier</td><td>one row per supplier (SCD2)</td></tr>
+        <tr><td>Part</td><td>one row per SKU</td></tr>
+        <tr><td>Plant</td><td>one row per facility</td></tr>
+        <tr><td>Customer</td><td>one row per customer</td></tr>
+        <tr><td>Shipment</td><td>one row per delivery</td></tr>
+        <tr><td>Invoice</td><td>one row per cost document (0-or-1 per shipment — the Landed Cost gap)</td></tr>
+        <tr><td>CustomerOrder</td><td>one row per order line</td></tr>
+        <tr><td>Inventory (snapshot)</td><td>one row per part-plant-day</td></tr>
+        <tr><td>QualityEvent</td><td>one row per defect</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p>
+    Source plan: <code>.snowflake/cortex/plans/supply-chain-ontology-revised.plan.md</code> —
+    see Phase 3 (Gold dynamic tables) and Phase 4 (native <code>SEMANTIC VIEW</code> DDL) for the SQL
+    that materializes this model.
+  </p>
+
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.6/dist/mermaid.min.js"></script>
+  <script>
+    mermaid.initialize({ startOnLoad: true, securityLevel: 'strict', theme: 'neutral' });
+  </script>
+
+</body>
+</html>
