@@ -237,3 +237,63 @@ LEFT JOIN (
     GROUP BY supplier_key
 ) qe ON qe.supplier_key = sup.supplier_key
 GROUP BY sup.supplier_key, sup.supplier_id, sup.supplier_name, sup.tier_name, sup.region, qe.total_quality_events;
+
+-- -----------------------------------------------------------------------------
+-- Additional metric feeds: supplier PO fill, warehouse pick fill, landed cost
+-- -----------------------------------------------------------------------------
+
+CREATE OR REPLACE DYNAMIC TABLE fact_purchase_order
+    TARGET_LAG = '10 MINUTES' WAREHOUSE = COMPUTE_WH
+    COMMENT = 'CANONICAL supplier-facing purchase order fact. Backs SEMANTIC_MODELS supplier_fill_rate = SUM(qty_received)/SUM(qty_ordered) -- deliberately a different measure from customer_order.fill_flag and warehouse pick fill.'
+AS
+SELECT
+    po.po_number,
+    sup.supplier_key,
+    po.supplier_id,
+    p.part_key,
+    po.part_id,
+    po.qty_ordered,
+    po.qty_received,
+    po.po_status
+FROM SUPPLY_CHAIN.SILVER.purchase_orders po
+LEFT JOIN dim_supplier sup ON sup.supplier_id = po.supplier_id
+LEFT JOIN dim_part p ON p.part_id = po.part_id;
+
+CREATE OR REPLACE DYNAMIC TABLE fact_pick_operation
+    TARGET_LAG = '10 MINUTES' WAREHOUSE = COMPUTE_WH
+    COMMENT = 'CANONICAL warehouse pick-operation fact. Backs the unit-level warehouse fill rate = SUM(units_picked)/SUM(units_ordered) -- continuous, not order-binary; the third distinct fill-rate concept.'
+AS
+SELECT
+    pick_id,
+    customer_order_ref,
+    units_ordered,
+    units_picked
+FROM SUPPLY_CHAIN.SILVER.pick_operations;
+
+CREATE OR REPLACE DYNAMIC TABLE fact_landed_cost
+    TARGET_LAG = '10 MINUTES' WAREHOUSE = COMPUTE_WH
+    COMMENT = 'CANONICAL full-stack landed cost fact, one row per shipment. Backs SEMANTIC_MODELS landed_cost_per_unit = unit_cost + freight_cost_per_unit + customs_duty_per_unit + handling_fee_per_unit -- computed at shipment grain as data arrives, not a monthly batch. This is the full-stack view; the Before tab legacy queries (Procurement PO+quote only, Logistics freight+customs only) run directly against SILVER.freight_quotes/SILVER.freight_invoices to show the incomplete-assembly divergence.'
+AS
+SELECT
+    fs.shipment_id,
+    fs.pro_number,
+    fs.supplier_key,
+    fs.part_key,
+    fs.part_id,
+    p.unit_cost,
+    fi.freight_cost,
+    fi.customs_duty,
+    ROUND(fi.freight_cost / NULLIF(fs.order_quantity, 0), 2) AS freight_cost_per_unit,
+    ROUND(fi.customs_duty / NULLIF(fs.order_quantity, 0), 2) AS customs_duty_per_unit,
+    COALESCE(oh.allocated_overhead_per_unit, 0) AS handling_fee_per_unit,
+    ROUND(
+        p.unit_cost
+        + COALESCE(fi.freight_cost / NULLIF(fs.order_quantity, 0), 0)
+        + COALESCE(fi.customs_duty / NULLIF(fs.order_quantity, 0), 0)
+        + COALESCE(oh.allocated_overhead_per_unit, 0)
+    , 2) AS landed_cost_per_unit
+FROM fact_shipment fs
+LEFT JOIN dim_part p ON p.part_key = fs.part_key
+LEFT JOIN SUPPLY_CHAIN.SILVER.freight_invoices fi ON fi.pro_number = fs.pro_number
+LEFT JOIN SUPPLY_CHAIN.SILVER.overhead_allocation oh ON oh.part_category = p.category
+    AND oh.month = DATE_TRUNC('MONTH', fs.actual_ship_date);

@@ -8,7 +8,7 @@ Run `create_gold_dynamic_tables.sql` — creates the `GOLD` schema and the full 
 
 - **Dimensions**: `dim_supplier` (SCD2-shaped), `dim_part`, `dim_plant`, `dim_customer`, `dim_date`
 - **Facts**: `fact_shipment`, `fact_order_fulfillment`, `fact_inventory_snapshot`,
-  `fact_quality_event`
+  `fact_quality_event`, `fact_purchase_order`, `fact_pick_operation`, `fact_landed_cost`
 - **Bridge**: `bridge_supplier_part` (many-to-many, derived from observed shipments)
 - **Aggregate**: `agg_supplier_performance` (pre-aggregated scorecard, `TARGET_LAG='15 MINUTES'`)
 
@@ -29,6 +29,10 @@ Run `create_gold_dynamic_tables.sql` — creates the `GOLD` schema and the full 
 - **`agg_supplier_performance`** joins `fact_shipment`, `bridge_supplier_part`, and
   `fact_quality_event` into a one-row-per-supplier scorecard (on-time rate, shipment value,
   distinct parts supplied, quality defect rate) so dashboards don't re-scan facts at query time.
+- **`fact_purchase_order`**, **`fact_pick_operation`**, and **`fact_landed_cost`** complete
+  coverage of the plan's four headline metrics: supplier-facing PO fill rate, warehouse
+  unit-level fill rate, and full-stack landed cost per unit (`unit_cost` + `freight_cost_per_unit`
+  + `customs_duty_per_unit` + `handling_fee_per_unit`), computed at shipment grain.
 
 ## Validated row counts (last run)
 
@@ -45,7 +49,10 @@ Run `create_gold_dynamic_tables.sql` — creates the `GOLD` schema and the full 
 | fact_quality_event | 150 |
 | bridge_supplier_part | 100 |
 | agg_supplier_performance | 50 |
+| fact_purchase_order | 300 |
+| fact_pick_operation | 300 |
+| fact_landed_cost | 800 |
 
-Canonical on-time delivery rate at the Gold layer: **70.3%** — matches the Silver
+Canonical on-time delivery rate at the Gold layer: **64.9%** — matches the Silver
 `shipment_crosswalk` result exactly, since `fact_shipment` is a pure pass-through with dimension
 keys attached, not a re-derivation.
