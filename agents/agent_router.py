@@ -60,7 +60,11 @@ class SnowflakeSession:
     def __init__(self, connection_name: str = CONNECTION_NAME):
         self._conn = snowflake.connector.connect(connection_name=connection_name)
         self.account = self._conn.account
-        self.host = f"{self.account}.snowflakecomputing.com"
+        # Use the connector's actual resolved host, not f"{account}.snowflakecomputing.com" --
+        # that reconstruction drops the region/cloud suffix for accounts like
+        # sc23256.ap-northeast-1.aws (conn.account is just "sc23256"), producing
+        # a 404 against the Cortex Analyst REST API.
+        self.host = self._conn.host
 
     @property
     def token(self) -> str:
@@ -80,6 +84,12 @@ class SnowflakeSession:
             "Authorization": f"Bearer {self.token}",
             "Content-Type": "application/json",
             "Accept": "application/json",
+            # Required: the REST API defaults to treating the bearer token as an
+            # OAuth access token if this header is omitted. conn.rest.token here
+            # is a Snowflake session token (starts with "ver:3-hint..."), not a
+            # raw OAuth token, so omitting this header produces a 401 "Invalid
+            # OAuth access token" even with valid, working credentials.
+            "X-Snowflake-Authorization-Token-Type": "SNOWFLAKE_SESSION_TOKEN",
         }
 
     def close(self) -> None:
