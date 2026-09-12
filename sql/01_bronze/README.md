@@ -5,28 +5,38 @@ Implements Phase 1 of `.snowflake/cortex/plans/supply-chain-ontology-revised.pla
 
 Run in order (each script is idempotent — safe to re-run for a clean rebuild):
 
-1. `create_bronze_tables.sql` — creates the `BRONZE` schema and all 17 tables (unified
-   `RAW_PAYLOAD` VARIANT + `_METADATA` OBJECT envelope), plus governance tags.
+1. `create_bronze_tables.sql` — creates the `BRONZE` schema and all 17 tables, plus governance tags.
 2. `load_bronze_from_sources.sql` — ingests the 11 Phase 0 `SOURCE_*` tables into Bronze via
-   `OBJECT_CONSTRUCT(*)` (source-shaped, no cleansing — that happens in Silver).
+   explicit typed-column `INSERT ... SELECT` (1:1 column mapping, no cleansing — that happens in
+   Silver). `tracking_events` passes `EVENT_PAYLOAD` through as VARIANT.
 3. `generate_bronze_netnew_data.sql` — generates synthetic data directly into Bronze for the 6
    entities that have no Phase 0 fragmented-source equivalent: `parts`, `plants`, `customers`,
    `customer_orders`, `inventory_snapshots`, `quality_events`.
 
 ## Design
 
-- **Unified envelope**: every Bronze table has the same 3 columns — `RAW_PAYLOAD` (VARIANT),
-  `_METADATA` (OBJECT: `source_system`, `source_table`, `ingested_at`), `LOAD_TIMESTAMP`. This
-  is what makes "unified raw landing" real: Silver can process any Bronze table with the same
-  flattening pattern regardless of which fragmented source system (or none) it came from.
+- **Two landing patterns**:
+  - **Structured** (16 tables): typed columns mapped 1:1 from source. Source data is clean,
+    relational data from ERP, TMS, Supplier Portal, and Finance systems — wrapping it in VARIANT
+    would lose type safety for no gain. This covers `orders`, `deliveries`, `shipments`,
+    `purchase_orders`, `pick_operations`, `demand_forecast`, `daily_cogs`, `freight_invoices`,
+    `overhead_allocation`, `freight_quotes`, `parts`, `plants`, `customers`, `customer_orders`,
+    `inventory_snapshots`, `quality_events`.
+  - **Semi-structured** (1 table: `tracking_events`): `DEVICE_TAG` as a typed column (stable
+    identifier) + `EVENT_PAYLOAD` as VARIANT (genuinely nested/variable sensor JSON with epoch_ms,
+    expected_epoch_ms, sensor_battery_pct, noise_flag). This is what VARIANT is designed for — IoT
+    sensor data with variable payloads and noise fields.
+- **`_METADATA` OBJECT on every table**: records `source_system`, `source_table`, `ingested_at`
+  regardless of landing pattern — genuinely useful lineage metadata that lets Silver's
+  shipment_crosswalk (entity resolution) trace a canonical shipment back to its originating
+  fragmented record.
 - **Net-new entities generated directly into Bronze**: `parts`, `plants`, `customers` have no
   Phase 0 fragmented-source story to tell (no cross-team disagreement to demonstrate), so they're
   generated with one consistent schema straight into Bronze rather than through a `SOURCE_*`
   detour. `customer_orders` is calibrated to reproduce a ~91% customer-facing fill rate and a
   correlated on-time-delivery rate, consistent with the divergent-metrics story from Phase 0.
-- **Governance**: `LIFECYCLE='BRONZE'` tag on the schema, `SOURCE_SYSTEM='MULTI'` tag per table
-  (since Bronze tables land rows from potentially many upstream systems over time), mirroring the
-  Phase 0 governance taxonomy in `SUPPLY_CHAIN.GOVERNANCE`.
+- **Governance**: `LIFECYCLE='BRONZE'` tag on the schema, mirroring the Phase 0 governance taxonomy
+  in `SUPPLY_CHAIN.GOVERNANCE`.
 
 ## Row counts (last run)
 

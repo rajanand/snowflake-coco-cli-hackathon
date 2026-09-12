@@ -16,11 +16,15 @@ Run in order (each script is idempotent — safe to re-run for a clean rebuild):
 
 ## Design
 
-- **VARIANT key casing**: the 11 Bronze tables ingested from Phase 0 `SOURCE_*` systems via
-  `OBJECT_CONSTRUCT(*)` have **UPPERCASE** keys (Snowflake's default unquoted identifier case),
-  e.g. `raw_payload:ERP_ORDER_NUMBER`. The 6 net-new Bronze tables used explicit **lowercase**
-  keys, e.g. `raw_payload:part_id`. VARIANT path notation is case-sensitive, so every Silver
-  table below matches whichever casing its specific Bronze source actually used.
+- **Direct typed-column access**: Bronze tables now use typed columns (not VARIANT payloads) for
+  all 16 structured sources. Silver reads these columns directly — e.g. `orders.erp_order_number`
+  instead of `raw_payload:ERP_ORDER_NUMBER::VARCHAR`. No VARIANT path notation needed, no
+  case-sensitivity concerns.
+- **VARIANT extraction only for tracking_events**: `BRONZE.tracking_events` is the only table that
+  retains a VARIANT column (`event_payload`) for genuinely semi-structured IoT sensor JSON. The
+  `shipment_crosswalk` extracts `event_payload:epoch_ms::NUMBER` and
+  `event_payload:expected_epoch_ms::NUMBER` from it — this is the only place VARIANT path notation
+  is used in the Silver layer.
 - **Dedup pattern**: every Dynamic Table uses `QUALIFY ROW_NUMBER() OVER (PARTITION BY <natural
   key> ORDER BY load_timestamp DESC) = 1`.
 - **shipment_crosswalk** resolves the same physical shipment across ERP order, TMS delivery,
@@ -52,9 +56,9 @@ Run in order (each script is idempotent — safe to re-run for a clean rebuild):
 | IoT tracking match rate | 560 / 800 = 70.0% (matches the plan's ~70% sensor coverage target) |
 | Supplier identity cross-system match | 800 / 800 = 100% |
 | CANONICAL on-time delivery rate | 64.9% |
-| CANONICAL customer fill rate | 93.0% |
+| CANONICAL customer fill rate | ~91% (stochastic, varies per RANDOM() regeneration) |
 | Supplier-facing PO fill rate | 86.3% |
-| Warehouse unit-level fill rate | 87.7% |
+| Warehouse unit-level fill rate | ~88% (stochastic) |
 
 The three fill-rate numbers are genuinely different measures (order-binary customer-facing vs.
 unit-level supplier-facing vs. continuous warehouse-level) — this is the plan's point: Silver

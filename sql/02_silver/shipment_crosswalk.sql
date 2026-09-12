@@ -29,6 +29,10 @@
 -- is a deterministic, more robust alternative to fuzzy EDITDISTANCE matching
 -- when the noise is confined to prefix/suffix/casing variation around a
 -- stable numeric core.
+--
+-- Bronze tables now use typed columns for orders/deliveries/shipments —
+-- Silver reads them directly. Only tracking_events.event_payload remains
+-- VARIANT (genuinely semi-structured IoT sensor JSON).
 -- =============================================================================
 
 USE ROLE SUPPLY_CHAIN_ADMIN;
@@ -40,50 +44,50 @@ CREATE OR REPLACE DYNAMIC TABLE shipment_crosswalk
 AS
 WITH orders_r AS (
     SELECT
-        raw_payload:ERP_ORDER_NUMBER::VARCHAR AS erp_order_number,
-        raw_payload:SUPPLIER_CODE::VARCHAR AS erp_supplier_code,
-        raw_payload:PART_SKU::VARCHAR AS part_id,
-        raw_payload:REQUESTED_SHIP_DATE::DATE AS requested_ship_date,
-        raw_payload:ACTUAL_SHIP_DATE::DATE AS actual_ship_date,
-        raw_payload:ORDER_STATUS::VARCHAR AS order_status,
-        raw_payload:QUANTITY::NUMBER AS quantity
+        erp_order_number,
+        supplier_code AS erp_supplier_code,
+        part_sku AS part_id,
+        requested_ship_date,
+        actual_ship_date,
+        order_status,
+        quantity
     FROM SUPPLY_CHAIN.BRONZE.orders
-    QUALIFY ROW_NUMBER() OVER (PARTITION BY raw_payload:ERP_ORDER_NUMBER::VARCHAR ORDER BY load_timestamp DESC) = 1
+    QUALIFY ROW_NUMBER() OVER (PARTITION BY erp_order_number ORDER BY load_timestamp DESC) = 1
 ),
 deliveries_r AS (
     SELECT
-        raw_payload:PRO_NUMBER::VARCHAR AS pro_number,
-        raw_payload:CARRIER_NAME::VARCHAR AS carrier_name,
-        raw_payload:ORIGIN_SUPPLIER_NAME::VARCHAR AS origin_supplier_name_raw,
-        'SUP-' || LPAD(REGEXP_SUBSTR(raw_payload:ORIGIN_SUPPLIER_NAME::VARCHAR, '[0-9]+'), 4, '0') AS resolved_supplier_from_tms,
-        raw_payload:PROMISED_DELIVERY_DATE::DATE AS promised_delivery_date,
-        raw_payload:FIRST_DELIVERY_ATTEMPT_DATE::DATE AS first_delivery_attempt_date,
-        raw_payload:FINAL_DELIVERY_DATE::DATE AS final_delivery_date,
-        raw_payload:IS_PARTIAL_SHIPMENT::BOOLEAN AS is_partial_shipment
+        pro_number,
+        carrier_name,
+        origin_supplier_name AS origin_supplier_name_raw,
+        'SUP-' || LPAD(REGEXP_SUBSTR(origin_supplier_name, '[0-9]+'), 4, '0') AS resolved_supplier_from_tms,
+        promised_delivery_date,
+        first_delivery_attempt_date,
+        final_delivery_date,
+        is_partial_shipment
     FROM SUPPLY_CHAIN.BRONZE.deliveries
-    QUALIFY ROW_NUMBER() OVER (PARTITION BY raw_payload:PRO_NUMBER::VARCHAR ORDER BY load_timestamp DESC) = 1
+    QUALIFY ROW_NUMBER() OVER (PARTITION BY pro_number ORDER BY load_timestamp DESC) = 1
 ),
 shipments_r AS (
     SELECT
-        raw_payload:ASN_NUMBER::VARCHAR AS asn_number,
-        raw_payload:SUPPLIER_ID_PORTAL::VARCHAR AS supplier_id_portal,
-        raw_payload:PART_NUMBER_PORTAL::VARCHAR AS part_number_portal,
-        raw_payload:PLANT_CODE::VARCHAR AS plant_code,
-        raw_payload:PLANNED_RECEIPT_DATE::DATE AS planned_receipt_date,
-        raw_payload:ACTUAL_RECEIPT_DATE::DATE AS actual_receipt_date,
-        raw_payload:SHIPMENT_STATUS::VARCHAR AS shipment_status,
-        raw_payload:QUANTITY::NUMBER AS quantity
+        asn_number,
+        supplier_id_portal,
+        part_number_portal,
+        plant_code,
+        planned_receipt_date,
+        actual_receipt_date,
+        shipment_status,
+        quantity
     FROM SUPPLY_CHAIN.BRONZE.shipments
-    QUALIFY ROW_NUMBER() OVER (PARTITION BY raw_payload:ASN_NUMBER::VARCHAR ORDER BY load_timestamp DESC) = 1
+    QUALIFY ROW_NUMBER() OVER (PARTITION BY asn_number ORDER BY load_timestamp DESC) = 1
 ),
 tracking_r AS (
     SELECT
-        raw_payload:DEVICE_TAG::VARCHAR AS device_tag,
-        raw_payload:EVENT_PAYLOAD:epoch_ms::NUMBER AS epoch_ms,
-        raw_payload:EVENT_PAYLOAD:expected_epoch_ms::NUMBER AS expected_epoch_ms,
-        raw_payload:EVENT_PAYLOAD:noise_flag::BOOLEAN AS noise_flag
+        device_tag,
+        event_payload:epoch_ms::NUMBER AS epoch_ms,
+        event_payload:expected_epoch_ms::NUMBER AS expected_epoch_ms,
+        event_payload:noise_flag::BOOLEAN AS noise_flag
     FROM SUPPLY_CHAIN.BRONZE.tracking_events
-    QUALIFY ROW_NUMBER() OVER (PARTITION BY raw_payload:DEVICE_TAG::VARCHAR ORDER BY load_timestamp DESC) = 1
+    QUALIFY ROW_NUMBER() OVER (PARTITION BY device_tag ORDER BY load_timestamp DESC) = 1
 )
 SELECT
     HASH(o.erp_order_number,
