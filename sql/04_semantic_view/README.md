@@ -48,10 +48,17 @@ Querying all 5 canonical metrics together in a single `SEMANTIC_VIEW()` call:
 | Metric | Value |
 |---|---|
 | `on_time_delivery_rate` | 64.875% |
-| `customer_fill_rate` | 93.000% |
+| `customer_fill_rate` | 90.800% |
 | `supplier_fill_rate` | 86.294% |
-| `days_of_inventory` | 49.16 days |
-| `landed_cost_per_unit` | $286.60 |
+| `days_of_inventory` | 48.60 days |
+| `landed_cost_per_unit` | $251.68 |
+
+`on_time_delivery_rate` and `supplier_fill_rate` are derived from Phase 0 `SOURCE_*` data and are
+exact matches across reloads. `customer_fill_rate`/`days_of_inventory`/`landed_cost_per_unit` come
+from the net-new entities (`customer_orders`, `inventory_snapshots`), whose generation SQL uses
+unseeded `RANDOM()` — like every other synthetic-data script in this project (see the Phase 0
+READMEs), these numbers vary slightly on every regeneration; only the calibration ranges/formulas
+are fixed, not the exact draw.
 
 `on_time_delivery_rate` matches `GOLD.fact_shipment`'s direct `AVG(is_on_time)*100` exactly
 (519/800 = 64.875%), confirming no fan-out distortion from combining metrics whose fact tables
