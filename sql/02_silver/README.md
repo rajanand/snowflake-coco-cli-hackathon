@@ -36,7 +36,11 @@ Run in order (each script is idempotent — safe to re-run for a clean rebuild):
     free-text name always resolves back to the same canonical supplier as the structured code.
   - `on_time_flag` encodes the **ONE governance decision**: actual date = plant-dock receipt
     (`shipments.actual_receipt_date`), not the TMS carrier-buffered `first_delivery_attempt_date`
-    and not the ERP ship date. Cancelled orders count as late (`0`), never dropped.
+    and not the ERP ship date. Cancelled orders count as late (`0`), never dropped. Shipments
+    still `IN_TRANSIT` past their `planned_receipt_date` also count as late (`0`) — the genuine
+    "drops in-transit/currently-late shipments" flaw the Supplier Portal legacy query has. Only
+    shipments still in-transit and **not yet** past their planned date are excluded (delivery
+    hasn't concluded yet, so it can't be judged).
   - `has_iot_tracking` is `FALSE` for ~30% of rows — the IoT system's genuine 70% sensor
     coverage gap, carried through rather than hidden.
 
@@ -47,7 +51,7 @@ Run in order (each script is idempotent — safe to re-run for a clean rebuild):
 | `shipment_crosswalk` rows | 800 (100% of orders matched to a delivery and a shipment) |
 | IoT tracking match rate | 560 / 800 = 70.0% (matches the plan's ~70% sensor coverage target) |
 | Supplier identity cross-system match | 800 / 800 = 100% |
-| CANONICAL on-time delivery rate | 70.3% |
+| CANONICAL on-time delivery rate | 64.9% |
 | CANONICAL customer fill rate | 93.0% |
 | Supplier-facing PO fill rate | 86.3% |
 | Warehouse unit-level fill rate | 87.7% |

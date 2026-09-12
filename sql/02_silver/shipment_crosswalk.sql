@@ -9,7 +9,12 @@
 -- (SOURCE_SUPPLIER_PORTAL.shipments.actual_receipt_date), NOT the TMS
 -- carrier-buffered first_delivery_attempt_date and NOT the ERP ship date.
 -- Backorders/cancellations count as late (on_time_flag=0), never dropped
--- from the denominator.
+-- from the denominator. Shipments still IN_TRANSIT past their
+-- planned_receipt_date also count as late (0) -- the genuine
+-- "drops in-transit/currently-late shipments" flaw the Supplier Portal
+-- legacy query has, fixed here. Only shipments still in-transit and NOT YET
+-- past their planned date are excluded (delivery hasn't concluded yet, so
+-- it can't be judged on-time or late).
 --
 -- resolved_supplier_id trusts SOURCE_ERP.orders.supplier_code as the system
 -- of record for supplier identity. resolved_supplier_from_tms independently
@@ -31,7 +36,7 @@ USE SCHEMA SUPPLY_CHAIN.SILVER;
 
 CREATE OR REPLACE DYNAMIC TABLE shipment_crosswalk
     TARGET_LAG = '5 MINUTES' WAREHOUSE = COMPUTE_WH
-    COMMENT = 'CANONICAL shipment entity resolution. Resolves the same physical shipment across 4 fragmented systems (ERP order, TMS delivery, Supplier Portal ASN, IoT tracking device) into one canonical_shipment_id. Governance decision baked in here: actual date = plant-dock receipt (SOURCE_SUPPLIER_PORTAL.shipments.actual_receipt_date), NOT the TMS carrier-buffered first_delivery_attempt_date and NOT the ERP ship date. Backorders/cancellations count as late (on_time_flag=0), never dropped from the denominator. resolved_supplier_id trusts SOURCE_ERP.orders.supplier_code as the system of record; resolved_supplier_from_tms independently regex-normalizes the free-text TMS supplier name (handles "Supplier-002 Corp." / "SUPPLIER-002" / "Supplier-002" spelling variants) to prove cross-system identity resolution.'
+    COMMENT = 'CANONICAL shipment entity resolution. Resolves the same physical shipment across 4 fragmented systems (ERP order, TMS delivery, Supplier Portal ASN, IoT tracking device) into one canonical_shipment_id. Governance decision baked in here: actual date = plant-dock receipt (SOURCE_SUPPLIER_PORTAL.shipments.actual_receipt_date), NOT the TMS carrier-buffered first_delivery_attempt_date and NOT the ERP ship date. Backorders/cancellations count as late (on_time_flag=0), never dropped from the denominator. Shipments still IN_TRANSIT past their planned_receipt_date count as late (0) too -- the genuine "drops in-transit/currently-late shipments" flaw the Supplier Portal legacy query has, fixed here. Only shipments still in-transit and NOT YET past their planned date are excluded (delivery hasn''t concluded, can''t be judged yet). resolved_supplier_id trusts SOURCE_ERP.orders.supplier_code as the system of record; resolved_supplier_from_tms independently regex-normalizes the free-text TMS supplier name (handles "Supplier-002 Corp." / "SUPPLIER-002" / "Supplier-002" spelling variants) to prove cross-system identity resolution.'
 AS
 WITH orders_r AS (
     SELECT
@@ -112,6 +117,8 @@ SELECT
         WHEN o.order_status = 'CANCELLED' THEN 0
         WHEN s.actual_receipt_date IS NOT NULL AND s.planned_receipt_date IS NOT NULL
             THEN IFF(s.actual_receipt_date <= s.planned_receipt_date, 1, 0)
+        WHEN s.actual_receipt_date IS NULL AND s.planned_receipt_date IS NOT NULL AND s.planned_receipt_date < CURRENT_DATE()
+            THEN 0
         ELSE NULL
     END AS on_time_flag
 FROM orders_r o
