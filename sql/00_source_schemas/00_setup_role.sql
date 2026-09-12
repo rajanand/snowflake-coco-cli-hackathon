@@ -1,0 +1,18 @@
+-- Phase 0: Setup — dedicated role instead of ACCOUNTADMIN for day-to-day build work.
+CREATE ROLE IF NOT EXISTS SUPPLY_CHAIN_ADMIN;
+
+-- Replace <YOUR_USER> with the user(s) who need this role
+GRANT ROLE SUPPLY_CHAIN_ADMIN TO USER <YOUR_USER>;
+
+GRANT CREATE DATABASE ON ACCOUNT TO ROLE SUPPLY_CHAIN_ADMIN;
+GRANT USAGE ON WAREHOUSE COMPUTE_WH TO ROLE SUPPLY_CHAIN_ADMIN;
+
+-- One-time governance/DQ bootstrap grants (also require ACCOUNTADMIN/SECURITYADMIN)
+GRANT DATABASE ROLE SNOWFLAKE.DATA_METRIC_USER TO ROLE SUPPLY_CHAIN_ADMIN;
+GRANT EXECUTE DATA METRIC FUNCTION ON ACCOUNT TO ROLE SUPPLY_CHAIN_ADMIN;
+GRANT APPLY TAG ON ACCOUNT TO ROLE SUPPLY_CHAIN_ADMIN;
+
+USE ROLE SUPPLY_CHAIN_ADMIN;
+
+CREATE DATABASE IF NOT EXISTS SUPPLY_CHAIN
+    COMMENT = 'Supply Chain Ontology & Governed Conversational Analytics. Medallion architecture: SOURCE_* (Phase 0, fragmented raw systems) -> BRONZE (Phase 1) -> SILVER (Phase 2) -> GOLD (Phase 3) -> SEMANTIC_MODELS (Phase 4) -> AUTOMATION (Phase 8). See .snowflake/cortex/plans/supply-chain-ontology-revised.plan.md.';
