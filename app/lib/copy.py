@@ -55,6 +55,12 @@ SCOPE_NOTE_UNGOVERNED = (
 SCOPE_NOTE_GOVERNED = "Same semantic view, regardless of who asks or how."
 
 # ---------------------------------------------------------------------------
+# The question banner - the literal question just asked, shown large
+# ---------------------------------------------------------------------------
+
+QUESTION_ASKED_LABEL = "{team} asked"
+
+# ---------------------------------------------------------------------------
 # Trace sidebar — the "behind the scenes" log
 # ---------------------------------------------------------------------------
 

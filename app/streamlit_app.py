@@ -216,11 +216,18 @@ def main() -> None:
 
     if mode == "ungoverned":
         entry = latest_entry(st.session_state["trace"], "ungoverned", metric_key)
-        UI.ungoverned_panel(c, spec, entry, revealed, sample)
     else:
         gov_entries = [e for e in st.session_state["trace"]
                       if e["mode"] == "governed" and e["metric_key"] == metric_key]
         entry = gov_entries[0] if gov_entries else None
+
+    if entry is not None:
+        UI.question_banner(entry, mode)
+        UI.gap(20)
+
+    if mode == "ungoverned":
+        UI.ungoverned_panel(c, spec, entry, revealed, sample)
+    else:
         governed_marker = entry["value"] if entry else None
         UI.governed_panel(c, spec, entry, revealed, sample, governed_marker, caps)
 

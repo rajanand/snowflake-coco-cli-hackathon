@@ -76,18 +76,20 @@ def scalar(sql: str, default=None):
 # ---------------------------------------------------------------------------
 
 @st.cache_data(ttl=TTL, show_spinner=False)
-def semantic_meta() -> dict:
+def _semantic_meta_cached() -> dict:
     """Parse DESCRIBE SEMANTIC VIEW into a structured dict.
 
     Yields the governance COMMENT, SQL expression and synonyms for every
     metric, plus the table and relationship graph - all read from the live
     object so the UI cannot assert something the object does not say.
+
+    Deliberately not wrapped in try/except: ``st.cache_data`` never caches a
+    raised exception, so a transient failure (e.g. right after container
+    cold-start, before the session is fully warmed up) is retried on the
+    very next call. Catching it here and returning an empty structure would
+    get *that empty structure* cached for the full TTL instead.
     """
-    try:
-        df = run(f"DESCRIBE SEMANTIC VIEW {SEMANTIC_VIEW}")
-    except Exception:
-        return {"metrics": {}, "tables": {}, "relationships": {},
-                "dimensions": {}, "facts": {}, "comment": ""}
+    df = run(f"DESCRIBE SEMANTIC VIEW {SEMANTIC_VIEW}")
 
     out = {"metrics": {}, "tables": {}, "relationships": {},
            "dimensions": {}, "facts": {}, "comment": ""}
@@ -115,6 +117,16 @@ def semantic_meta() -> dict:
         entry[prop.lower()] = val
 
     return out
+
+
+def semantic_meta() -> dict:
+    """Safe entry point: never raises, falls back to an empty structure on
+    failure without caching that failure (see ``_semantic_meta_cached``)."""
+    try:
+        return _semantic_meta_cached()
+    except Exception:
+        return {"metrics": {}, "tables": {}, "relationships": {},
+                "dimensions": {}, "facts": {}, "comment": ""}
 
 
 def metric_meta(metric_name: str) -> dict:
@@ -473,8 +485,10 @@ def drilldown(dimension: str, metric: str) -> pd.DataFrame:
     """)
 
 
-@st.cache_data(ttl=TTL, show_spinner=False)
 def entity_counts() -> dict:
+    """Derived from ``semantic_meta()``, which is already cached - no need
+    for a second cache layer here, and no risk of caching a stale-empty
+    result independently of that cache's own recovery."""
     m = semantic_meta()
     return {
         "tables": len(m["tables"]),

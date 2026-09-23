@@ -192,6 +192,14 @@ a:hover {{ text-decoration: underline; }}
 .ge-small   {{ {_t('small')};   color: var(--ge-muted); margin: 0; }}
 .ge-mono    {{ {_t('mono')};    font-family: var(--ge-mono); color: var(--ge-text-dim); }}
 
+/* ---------- the question just asked ---------- */
+/* The literal question is the thing being contrasted (silo vs. governed), so
+   it gets its own large, quoted treatment - not just a line inside a card. */
+.ge-question {{
+  font-size: 30px; font-weight: 600; letter-spacing: -0.018em; line-height: 1.3;
+  font-style: italic; color: var(--ge-text); margin: 0;
+}}
+
 /* ---------- surfaces ---------- */
 .ge-card {{
   background: var(--ge-surface);

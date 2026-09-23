@@ -115,6 +115,24 @@ def persona_chips(c: dict, spec: dict, mode: str) -> dict | None:
     return clicked
 
 
+def question_banner(entry: dict, mode: str) -> None:
+    """Large, prominent display of the exact question just asked.
+
+    Placed right after metric/mode/department selection, before the panel -
+    the question being asked is the point of contrast (silo vs. governed),
+    so it should not be legible only in the sidebar trace log.
+    """
+    tone = "var(--ge-accent)" if mode == "governed" else "var(--ge-warn)"
+    h(f"""
+    <div style="border-left:3px solid {tone};padding-left:16px">
+      <div class="ge-eyebrow" style="margin-bottom:6px">
+        {C.QUESTION_ASKED_LABEL.format(team=entry['team'])}
+      </div>
+      <div class="ge-question">\u201c{entry['question']}\u201d</div>
+    </div>
+    """)
+
+
 def governed_ask_box(caps: dict) -> str | None:
     """Optional free-text ask, governed mode only."""
     if caps.get("chat_input"):
