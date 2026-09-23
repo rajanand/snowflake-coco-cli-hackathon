@@ -1,4 +1,4 @@
-"""Rendering components.
+CALL SUPPLY_CHAIN.SEMANTIC_MODELS.WRITE_APP_FILE('lib/components.py', $$"""Rendering components.
 
 Layout only - every string comes from ``copy.py``, every colour from
 ``tokens.py``, every number from ``data.py``. HTML is emitted through ``h()``
@@ -96,19 +96,19 @@ def mode_toggle(c: dict, caps: dict) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Persona chips — one per legacy claimant team, dynamic per metric
+# Persona chips Ã¢â‚¬â€ one per legacy claimant team, dynamic per metric
 # ---------------------------------------------------------------------------
 
 def persona_chips(c: dict, spec: dict, mode: str) -> dict | None:
     """One button per department that claims this metric. Returns the clicked
     legacy entry, or None if nothing was clicked this run."""
-    h(TH.eyebrow(f"Ask as a department — {spec['label']}", "target"))
+    h(TH.eyebrow(f"Ask as a department Ã¢â‚¬â€ {spec['label']}", "target"))
     entries = spec["legacy"]
     cols = st.columns(len(entries))
     clicked = None
     for col, entry in zip(cols, entries):
         with col:
-            label = f"{entry['team']} · {entry['system']}"
+            label = f"{entry['team']} Ã‚Â· {entry['system']}"
             if st.button(label, key=f"persona_{mode}_{spec['key']}_{entry['team']}",
                         width="stretch"):
                 clicked = entry
@@ -168,7 +168,7 @@ def ungoverned_panel(c: dict, spec: dict, entry: dict | None,
     gap(16)
     left, right = st.columns([1.4, 2])
     with left:
-        h(TH.eyebrow(f"{entry['team']} · {entry['system']}", "alert"))
+        h(TH.eyebrow(f"{entry['team']} Ã‚Â· {entry['system']}", "alert"))
         h(f"<div class='ge-legacy-num'>{entry['shown']}</div>")
         h(f"""
         <div class="ge-small" style="margin-top:10px;color:var(--ge-text-dim)">
@@ -247,13 +247,12 @@ def governed_panel(c: dict, spec: dict, entry: dict | None, revealed: list[dict]
 
 
 # ---------------------------------------------------------------------------
-# Trace sidebar — "behind the scenes"
+# Trace sidebar Ã¢â‚¬â€ "behind the scenes"
 # ---------------------------------------------------------------------------
 
 def _trace_steps(entry: dict) -> None:
     for step in entry["steps"]:
-        gap(10)
-        h(f"<div class='ge-eyebrow' style='margin:0 0 6px'>{step['label']}</div>")
+        h(f"<div class='ge-eyebrow' style='margin:8px 0 2px'>{step['label']}</div>")
         if step["kind"] == "sql":
             st.code(step["detail"], language="sql")
         else:
@@ -265,45 +264,43 @@ def trace_sidebar(c: dict, trace: list[dict]) -> None:
     h(f"<div class='ge-eyebrow'>{TH.icon('layers', 12)} {C.TRACE_HEADER}</div>")
 
     if not trace:
-        gap(8)
+        gap(4)
         h(f"<div class='ge-small' style='color:var(--ge-muted)'>{C.TRACE_EMPTY_HINT}</div>")
         return
 
-    gap(4)
     if st.button(C.CLEAR_TRACE_LABEL, width="stretch", key="clear_trace"):
         st.session_state["trace"] = []
         st.session_state["revealed"] = {}
         TH.rerun()
 
-    gap(16)
+    gap(10)
     for i, entry in enumerate(trace):
         border = "var(--ge-accent)" if entry["mode"] == "governed" else "var(--ge-warn)"
         badge_cls = "governed" if entry["mode"] == "governed" else "ungoverned"
 
         header = f"""
-        <div style="border-left:3px solid {border};padding:2px 0 2px 14px">
+        <div style="border-left:2px solid {border};padding-left:10px">
           <span class="ge-badge {badge_cls}">{entry['mode']}</span>
-          <div class="ge-small" style="margin-top:8px;color:var(--ge-text);font-weight:500">
-            {entry['team']} · {entry['metric_label']}
+          <div class="ge-small" style="margin-top:4px;color:var(--ge-text)">
+            {entry['team']} Ã‚Â· {entry['metric_label']}
           </div>
-          <div class="ge-mono" style="margin-top:2px;color:var(--ge-muted)">{entry['shown']}</div>
+          <div class="ge-mono" style="font-size:11px;color:var(--ge-muted)">{entry['shown']}</div>
         </div>
         """
 
         if i == 0:
             h(header)
-            gap(10)
-            h(f"<div class='ge-small' style='color:var(--ge-text-dim);line-height:1.6'>\u201c{entry['question']}\u201d</div>")
+            gap(4)
+            h(f"<div class='ge-small' style='color:var(--ge-text-dim)'>\u201c{entry['question']}\u201d</div>")
             _trace_steps(entry)
-            gap(16)
-            h("<hr class='ge-rule' style='margin:0 0 16px'/>")
+            gap(6)
+            h("<hr class='ge-rule' style='margin:10px 0'/>")
         else:
             h(header)
-            gap(8)
             with st.expander("Steps", expanded=False):
-                h(f"<div class='ge-small' style='margin-bottom:10px;line-height:1.6'>\u201c{entry['question']}\u201d</div>")
+                h(f"<div class='ge-small' style='margin-bottom:6px'>\u201c{entry['question']}\u201d</div>")
                 _trace_steps(entry)
-            gap(14)
+            gap(8)
 
 
 # ---------------------------------------------------------------------------
@@ -334,12 +331,12 @@ def answer_block(c: dict, spec: dict, result) -> None:
         """)
 
         # Provenance of the number itself, stated rather than implied.
-        transport = f" · {result.transport}" if result.transport else ""
+        transport = f" Ã‚Â· {result.transport}" if result.transport else ""
         if result.source == "analyst_sql":
-            path = f"Cortex Analyst → generated SQL{transport}"
+            path = f"Cortex Analyst Ã¢â€ â€™ generated SQL{transport}"
             tone = "var(--ge-accent)"
         elif result.source == "analyst":
-            path = f"Cortex Analyst → semantic view{transport}"
+            path = f"Cortex Analyst Ã¢â€ â€™ semantic view{transport}"
             tone = "var(--ge-accent)"
         elif result.source == "fallback":
             path = "Semantic view (direct SQL)"
@@ -352,7 +349,7 @@ def answer_block(c: dict, spec: dict, result) -> None:
         <div style="margin-top:12px;display:flex;align-items:center;gap:6px">
           <span style="color:{tone}">{TH.icon('route', 12)}</span>
           <span class="ge-small" style="color:{tone}">{path}</span>
-          <span class="ge-small" style="color:var(--ge-muted)">· {result.latency_ms} ms</span>
+          <span class="ge-small" style="color:var(--ge-muted)">Ã‚Â· {result.latency_ms} ms</span>
         </div>
         """)
 
@@ -372,7 +369,7 @@ def answer_block(c: dict, spec: dict, result) -> None:
           <div class="ge-eyebrow" style="margin-bottom:4px">Transport note</div>
           <div class="ge-small">Analyst call did not return usable content, so the
           value was taken directly from the semantic view. The governed number is
-          unaffected — only the path to it changed.</div>
+          unaffected Ã¢â‚¬â€ only the path to it changed.</div>
           <div class="ge-mono" style="font-size:10.5px;margin-top:8px;color:var(--ge-muted)">{result.error[:300]}</div>
         </div>
         """)
@@ -390,8 +387,8 @@ def receipt(c: dict, spec: dict, result) -> None:
     instead of repeating a claim typed into the app.
     """
     meta = D.metric_meta(spec["metric_name"])
-    decision = meta.get("comment") or "—"
-    expression = meta.get("expression") or "—"
+    decision = meta.get("comment") or "Ã¢â‚¬â€"
+    expression = meta.get("expression") or "Ã¢â‚¬â€"
     counts = D.entity_counts()
 
     rows = [
@@ -400,10 +397,10 @@ def receipt(c: dict, spec: dict, result) -> None:
         ("expression", expression, False),
         ("governance decision", decision, False),
         ("entity resolution",
-         "ERP ⋈ TMS ⋈ Supplier Portal ⋈ IoT → 1 canonical shipment", False),
+         "ERP Ã¢â€¹Ë† TMS Ã¢â€¹Ë† Supplier Portal Ã¢â€¹Ë† IoT Ã¢â€ â€™ 1 canonical shipment", False),
         ("ontology",
-         f"{counts['tables']} tables · {counts['relationships']} relationships · "
-         f"{counts['metrics']} metrics · {counts['dimensions']} dimensions", False),
+         f"{counts['tables']} tables Ã‚Â· {counts['relationships']} relationships Ã‚Â· "
+         f"{counts['metrics']} metrics Ã‚Â· {counts['dimensions']} dimensions", False),
         ("least-privilege role", D.ANALYST_ROLE, False),
         ("raw identifiers exposed", "0", True),
     ]
@@ -583,7 +580,7 @@ def zero_id_panel(c: dict) -> None:
         st.warning(f"Crosswalk unavailable: {exc}")
         return
 
-    h(TH.eyebrow("Silver crosswalk — source identifiers resolved", "layers"))
+    h(TH.eyebrow("Silver crosswalk Ã¢â‚¬â€ source identifiers resolved", "layers"))
     st.dataframe(df, width="stretch", hide_index=True)
 
     gap(8)
@@ -608,7 +605,8 @@ def zero_id_panel(c: dict) -> None:
             shipment_id<br/>supplier_key<br/>part_key<br/>plant_key
           </div>
           <div class="ge-small" style="margin-top:10px">
-            Canonical keys only — zero source-system identifiers.
+            Canonical keys only Ã¢â‚¬â€ zero source-system identifiers.
           </div>
         </div>
         """)
+$$);

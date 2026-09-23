@@ -128,6 +128,46 @@ html, body, [class*="css"], [data-testid="stAppViewContainer"] {{
   padding: {T.SPACE['6']} {T.SPACE['6']} {T.SPACE['10']};
 }}
 
+/* ---------- sidebar (behind-the-scenes trace log) ---------- */
+/* Wider than Streamlit's cramped default so labels, SQL and prose all get
+   room to breathe; min-width only, so the user can still drag it wider. */
+[data-testid="stSidebar"] {{
+  background: var(--ge-surface);
+  border-right: 1px solid var(--ge-hairline);
+  min-width: 380px !important;
+}}
+[data-testid="stSidebar"] > div {{
+  padding-top: {T.SPACE['5']};
+  padding-left: {T.SPACE['5']};
+  padding-right: {T.SPACE['5']};
+}}
+/* Sidebar's own vertical rhythm - looser than the dense main content. */
+[data-testid="stSidebar"] [data-testid="stVerticalBlock"] {{ gap: {T.SPACE['4']}; }}
+[data-testid="stSidebar"] [data-testid="stExpander"] {{ background: var(--ge-surface-raised); }}
+[data-testid="stSidebar"] [data-testid="stExpander"] summary {{
+  font-size: 13px; padding: {T.SPACE['3']} {T.SPACE['4']};
+}}
+[data-testid="stSidebar"] [data-testid="stExpanderDetails"] {{
+  padding: {T.SPACE['1']} {T.SPACE['4']} {T.SPACE['3']};
+}}
+[data-testid="stSidebar"] [data-testid="stCode"], [data-testid="stSidebar"] pre {{
+  font-size: 12.5px !important;
+  line-height: 1.6 !important;
+}}
+[data-testid="stSidebar"] [data-testid="stCode"] pre {{
+  padding: {T.SPACE['3']} {T.SPACE['4']} !important;
+}}
+/* Text set inside the trace log reads larger and looser than the compact
+   .ge-small default used elsewhere, so entries don't feel stacked on top of
+   one another. */
+[data-testid="stSidebar"] .ge-eyebrow {{ font-size: 11.5px; margin-bottom: {T.SPACE['1']}; }}
+[data-testid="stSidebar"] .ge-small {{ font-size: 13.5px; line-height: 1.6; }}
+[data-testid="stSidebar"] .ge-mono {{ font-size: 12px; line-height: 1.6; }}
+[data-testid="stSidebar"] .ge-badge {{ padding: 5px 12px; font-size: 11px; }}
+[data-testid="stSidebar"] .stButton {{ margin-bottom: {T.SPACE['2']}; }}
+[data-testid="stSidebar"] hr.ge-rule {{ margin: {T.SPACE['5']} 0; }}
+[data-testid="stSidebarCollapseButton"] button {{ color: var(--ge-muted) !important; }}
+
 /* Tighten Streamlit's default vertical rhythm; our own spacing governs. */
 [data-testid="stVerticalBlock"] {{ gap: {T.SPACE['3']}; }}
 [data-testid="stElementContainer"] {{ margin: 0; }}

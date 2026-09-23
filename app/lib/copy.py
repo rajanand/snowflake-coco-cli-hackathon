@@ -12,78 +12,74 @@ answer was already present in the source nobody trusted.
 """
 
 PRODUCT = "Governed Answer Engine"
-TAGLINE = "One question. Four answers. One governed truth."
+TAGLINE = "Ask as a department. Watch the answers disagree. Then govern it."
 
 SUBTITLE = (
-    "Five source systems each compute supply-chain metrics their own way, and "
-    "every team believes its number is correct. Ask a question below and watch "
-    "the disagreement resolve against a single governed Snowflake semantic view."
+    "Ask as a department and its own siloed agent answers from its own "
+    "system. Flip to Governed and the same question, from any department, "
+    "routes through one semantic view instead - and converges on one answer."
 )
 
-# Personas deliberately ask for the SAME metric in different words. The
-# semantic view's declared synonyms are what make them converge, which is the
-# cross-persona consistency proof.
-PERSONAS = {
-    "Executive": "Are we hitting our delivery dates?",
-    "Supply Chain": "What is our supplier on-time delivery performance?",
-    "Analyst": "What percentage of shipments arrived on schedule?",
-    "Procurement": "What is our OTD%?",
-}
+# ---------------------------------------------------------------------------
+# Mode framing
+# ---------------------------------------------------------------------------
 
-BEAT_LABELS = {
-    0: "Ask a question to begin",
-    1: "The claims",
-    2: "The disagreement",
-    3: "The governed answer",
-}
+UNGOVERNED_HEADLINE = "Same question. Different systems. Different answers."
+GOVERNED_HEADLINE = "One question. One semantic view. One answer."
 
-BEAT_CTA = {
-    0: "Run the question",
-    1: "Show the disagreement",
-    2: "Reveal the governed answer",
-    3: "Reset",
-}
-
-# Three-step orientation shown before the first question, so a first-time
-# viewer understands the interaction before touching it.
-HOW_IT_WORKS = [
-    ("Ask", "Pick a persona below — or type your own question."),
-    ("See the disagreement", "Watch each source system answer the same question differently."),
-    ("Get the governed truth", "One semantic view resolves them to a single trusted number."),
-]
-
-EMPTY_HINT = "Start here — pick a persona below to ask the supply chain a question."
-
-# The caption under the primary button, telling the viewer what the next click
-# will do. Keyed by the CURRENT beat.
-NEXT_HINT = {
-    1: "Next: measure how far apart these answers really are.",
-    2: "Next: reveal the one governed answer.",
-}
-
-DEPTH_LOCKED_HINT = (
-    "The evidence behind the answer — the full metric board, dimension "
-    "drilldowns, the ontology and the identity resolution — unlocks once you "
-    "reach the governed answer above."
+UNGOVERNED_LEAD = (
+    "Each department's agent can see only its own system. It rephrases the "
+    "question, runs that system's one canned report, and answers - "
+    "confidently and correctly, by its own definition."
+)
+GOVERNED_LEAD = (
+    "The same question, asked by any department in any words, now routes "
+    "through Cortex Analyst against the governed semantic view - not the "
+    "source tables - so every ask resolves to the same number."
 )
 
+UNGOVERNED_EMPTY_HINT = "Ask as a department above to see how its own agent answers."
+GOVERNED_EMPTY_HINT = "Ask as a department above to route this through the semantic view."
 
-# Shown beside the number line as each beat lands.
-BEAT_NARRATIVE = {
-    1: (
-        "Each team ran its own query against its own system. Every number here "
-        "is arithmetically correct and defensible by the team that produced it."
-    ),
-    2: (
-        "This is the range leadership was asked to choose between. No amount of "
-        "reconciliation meetings resolves it, because the definitions differ - "
-        "not the data."
-    ),
-    3: (
-        "The governed metric resolves the definition once, applies it to every "
-        "shipment, and closes each loophole the source systems relied on."
-    ),
+UNGOVERNED_NUDGE = "→ Flip to Governed to resolve this against the semantic view."
+GOVERNED_EMPHASIS = "One query. The semantic view — not the source tables."
+
+# ---------------------------------------------------------------------------
+# Scope framing, shown beside every ask
+# ---------------------------------------------------------------------------
+
+SCOPE_NOTE_UNGOVERNED = (
+    "No access to the semantic view or any other department's system - "
+    "only {system}."
+)
+SCOPE_NOTE_GOVERNED = "Same semantic view, regardless of who asks or how."
+
+# ---------------------------------------------------------------------------
+# Trace sidebar — the "behind the scenes" log
+# ---------------------------------------------------------------------------
+
+TRACE_HEADER = "Behind the scenes"
+TRACE_EMPTY_HINT = "Ask a question to see what happens behind the scenes."
+CLEAR_TRACE_LABEL = "Clear trace"
+
+TRACE_STEP_UNDERSTAND = "Understanding the question"
+TRACE_STEP_SCOPE_UNGOVERNED = "Scope: {system} only"
+TRACE_STEP_SCOPE_GOVERNED = "Scope: governed semantic view"
+TRACE_STEP_SQL_UNGOVERNED = "Running {system}'s canned report"
+TRACE_STEP_SQL_GOVERNED = "Resolving against the semantic view"
+TRACE_STEP_ANSWER = "Answer"
+
+# Shown in the trace when the ungoverned "understand" step used a real
+# Cortex Complete call vs. a templated line taken because the call failed or
+# was slow. The distinction is stated, never hidden.
+TRACE_SOURCE_NOTE = {
+    "llm_rephrase": "Cortex Complete",
+    "template_fallback": "template fallback — Cortex Complete unavailable",
 }
+
+# ---------------------------------------------------------------------------
+# Depth section (governed mode)
+# ---------------------------------------------------------------------------
 
 IOT_INSIGHT = (
     "The sensor source was closest to the truth all along. It measured the "

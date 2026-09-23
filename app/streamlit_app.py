@@ -1,21 +1,23 @@
 """Governed Answer Engine — Streamlit in Snowflake.
 
 A live demonstration that a governed semantic layer is what makes
-conversational analytics trustworthy. Ask a supply-chain question in plain
-English; the app shows what each source system would have answered, how far
-apart those answers are, and what the single governed metric returns — with the
-provenance of that governed number quoted from the deployed object itself.
+conversational analytics trustworthy. Ask as a department; its siloed agent
+answers from its own system. Flip to Governed and the same question, from any
+department, routes through Cortex Analyst against one semantic view instead -
+and every ask converges on one number. Every ask, in either mode, appends a
+step-by-step trace to the sidebar so the divergence and the convergence are
+both visible, not just claimed.
 
 Structure
 ---------
-    streamlit_app.py    this file: state, beat sequencing, layout
-    lib/tokens.py       colour, type and spacing tokens (dual theme)
-    lib/theme.py        CSS/webfont injection, icons, capability detection
-    lib/copy.py         all narrative text
-    lib/data.py         cached queries, metric registry, live semantic metadata
-    lib/analyst.py      Cortex Analyst client + guaranteed fallback
-    lib/viz.py          Altair specs, including the answer number line
-    lib/components.py   rendering
+    streamlit_app.py    this file: state, the ask/trace loop, layout
+    lib/tokens.py        colour, type and spacing tokens (dual theme)
+    lib/theme.py         CSS/webfont injection, icons, capability detection
+    lib/copy.py          all narrative text
+    lib/data.py          cached queries, metric registry, live semantic metadata
+    lib/analyst.py       Cortex Analyst client (governed) + siloed agent (ungoverned)
+    lib/viz.py           Altair specs, including the answer number line
+    lib/components.py    rendering: toggle, persona chips, panels, trace sidebar
 
 Runtime note
 ------------
@@ -33,15 +35,13 @@ import json
 
 import streamlit as st
 
-st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(layout="wide", initial_sidebar_state="expanded")
 
 from lib import analyst as A          # noqa: E402
 from lib import components as UI      # noqa: E402
 from lib import copy as C             # noqa: E402
 from lib import data as D             # noqa: E402
 from lib import theme as TH           # noqa: E402
-
-MAX_BEAT = 3
 
 
 # ---------------------------------------------------------------------------
@@ -50,13 +50,7 @@ MAX_BEAT = 3
 
 @st.cache_resource(show_spinner=False)
 def _record_runtime(caps: dict) -> str:
-    """Persist detected runtime facts once per container.
-
-    Project memory recorded warehouse-runtime limitations for the older app
-    object; the docs describe a very different container-runtime ceiling. This
-    writes what is actually true of *this* deployment so the question is
-    settled by evidence rather than by either source being taken on trust.
-    """
+    """Persist detected runtime facts once per container."""
     try:
         payload = json.dumps({"app": "governed_answer_engine", **caps}).replace("'", "''")
         D.session().sql(f"""
@@ -79,38 +73,94 @@ def _record_runtime(caps: dict) -> str:
 
 def init_state() -> None:
     st.session_state.setdefault("theme", "dark")
-    st.session_state.setdefault("beat", 0)
+    st.session_state.setdefault("mode", "ungoverned")
     st.session_state.setdefault("metric", "otd")
-    st.session_state.setdefault("question", None)
-    st.session_state.setdefault("result", None)
+    st.session_state.setdefault("trace", [])       # append-only, newest first
+    st.session_state.setdefault("trace_seq", 0)
+    st.session_state.setdefault("revealed", {})     # metric_key -> set(team)
 
 
-def on_question(question: str) -> None:
-    """Route the question, resolve the governed answer, arm the first beat.
+def latest_entry(trace: list[dict], mode: str, metric_key: str) -> dict | None:
+    for e in trace:
+        if e["mode"] == mode and e["metric_key"] == metric_key:
+            return e
+    return None
 
-    The Analyst call happens here rather than at the reveal so that the reveal
-    is instantaneous on stage. Latency is absorbed while the presenter is still
-    talking about the claims.
+
+# ---------------------------------------------------------------------------
+# The ask -> trace loop
+# ---------------------------------------------------------------------------
+
+def on_ask(mode: str, metric_key: str, spec: dict, question: str,
+          team_label: str, system_label: str, legacy_entry: dict | None) -> None:
+    """Resolve one ask and append its trace to the sidebar log.
+
+    Ungoverned: a real Cortex Complete call rephrases the question scoped to
+    one department's system, then that system's fixed canned SQL runs.
+    Governed: the question routes through the existing Cortex Analyst
+    transport chain against the semantic view, unchanged from before.
     """
-    metric_key, _ = A.route(question, default=st.session_state["metric"])
-    st.session_state["metric"] = metric_key
-    st.session_state["question"] = question
+    precision = 3 if spec["fmt"] == "pct" else (2 if spec["fmt"] == "usd" else 1)
 
-    label = D.METRICS[metric_key]["label"]
-    if hasattr(st, "status"):
-        with st.status(f"Resolving “{question}”", expanded=False) as s:
-            st.write(f"Routed to **{label}** via semantic-view synonyms")
-            st.write("Querying each source system as that team would have")
-            D.legacy_answers(metric_key)
-            st.write("Asking Cortex Analyst against the governed semantic view")
-            st.session_state["result"] = A.ask(question, metric_key)
-            s.update(label=f"Resolved · {label}", state="complete")
+    if mode == "ungoverned":
+        if legacy_entry is None:
+            return
+        if hasattr(st, "status"):
+            with st.status(f"Asking {system_label}…", expanded=False) as s:
+                st.write(f"{team_label} agent — scoped to {system_label} only")
+                result = A.siloed_ask(question, legacy_entry)
+                s.update(label=f"{system_label} answered", state="complete")
+        else:
+            with st.spinner(f"Asking {system_label}…"):
+                result = A.siloed_ask(question, legacy_entry)
+
+        st.session_state["revealed"].setdefault(metric_key, set()).add(team_label)
+
+        shown = D.fmt(result.value, spec["fmt"], precision)
+        steps = [
+            {"label": C.TRACE_STEP_UNDERSTAND, "detail": result.text, "kind": "text"},
+            {"label": C.TRACE_STEP_SCOPE_UNGOVERNED.format(system=system_label),
+             "detail": C.SCOPE_NOTE_UNGOVERNED.format(system=system_label), "kind": "text"},
+            {"label": C.TRACE_STEP_SQL_UNGOVERNED.format(system=system_label),
+             "detail": result.sql, "kind": "sql"},
+            {"label": C.TRACE_STEP_ANSWER, "detail": shown, "kind": "text"},
+        ]
     else:
-        with st.spinner(f"Resolving “{question}”"):
-            D.legacy_answers(metric_key)
-            st.session_state["result"] = A.ask(question, metric_key)
+        if hasattr(st, "status"):
+            with st.status(f"Routing “{question}” through the semantic view…", expanded=False) as s:
+                result = A.ask(question, metric_key)
+                s.update(label="Resolved via the semantic view", state="complete")
+        else:
+            with st.spinner("Routing through the semantic view…"):
+                result = A.ask(question, metric_key)
 
-    st.session_state["beat"] = 1
+        shown = D.fmt(result.value, spec["fmt"], precision)
+        steps = [
+            {"label": C.TRACE_STEP_UNDERSTAND, "detail": result.text or "—", "kind": "text"},
+            {"label": C.TRACE_STEP_SCOPE_GOVERNED, "detail": C.SCOPE_NOTE_GOVERNED, "kind": "text"},
+            {"label": C.TRACE_STEP_SQL_GOVERNED,
+             "detail": result.sql or D.governed_sql(spec["metric"]), "kind": "sql"},
+            {"label": C.TRACE_STEP_ANSWER, "detail": shown, "kind": "text"},
+        ]
+
+    entry = {
+        "mode": mode,
+        "metric_key": metric_key,
+        "metric_label": spec["label"],
+        "team": team_label,
+        "system": system_label,
+        "question": question,
+        "question_echo": result.text or "",
+        "steps": steps,
+        "value": result.value,
+        "shown": shown,
+        "source": result.source,
+        "latency_ms": result.latency_ms,
+        "result": result,
+    }
+    st.session_state["trace_seq"] += 1
+    entry["id"] = st.session_state["trace_seq"]
+    st.session_state["trace"].insert(0, entry)
 
 
 # ---------------------------------------------------------------------------
@@ -124,130 +174,57 @@ def main() -> None:
     c = TH.inject(st.session_state["theme"])
     _record_runtime(caps)
 
+    with st.sidebar:
+        UI.trace_sidebar(c, st.session_state["trace"])
+
     UI.masthead(c)
     UI.gap(18)
 
-    beat = st.session_state["beat"]
-
-    # Before the first question, orient the viewer instead of showing an empty
-    # chart. This is what makes the interaction self-explanatory.
-    if beat == 0:
-        UI.how_it_works(c)
-        UI.gap(16)
-        UI.h(
-            f"<div class='ge-card' style='border-left:2px solid var(--ge-accent)'>"
-            f"<div class='ge-body' style='color:var(--ge-text)'>{C.EMPTY_HINT}</div></div>"
-        )
-        UI.gap(12)
-
-    asked = UI.question_bar(c, caps)
-    if asked:
-        on_question(asked)
-        beat = st.session_state["beat"]
-
-    # Nothing more to show until a question has been asked.
-    if beat == 0:
-        _footer(caps)
-        return
-
-    UI.gap(16)
-
-    metric_key = st.session_state["metric"]
+    metric_key = UI.metric_selector(c, caps)
+    st.session_state["metric"] = metric_key
     spec = D.METRICS[metric_key]
 
-    # Data for the stage. Legacy values are computed, never asserted.
-    try:
-        legacy = D.legacy_answers(metric_key)
-    except Exception as exc:
-        legacy = []
-        st.warning(f"Could not compute legacy answers: {exc}")
+    UI.gap(10)
+    mode = UI.mode_toggle(c, caps)
+    st.session_state["mode"] = mode
 
-    sample = D.iot_sample() if metric_key == "otd" else None
-    result = st.session_state.get("result")
-    governed = result.value if result else D.governed_value(spec["result_col"])
+    UI.gap(16)
+    clicked = UI.persona_chips(c, spec, mode)
 
-    UI.stage(c, spec, legacy, governed, sample, beat, st.session_state["question"])
-
-    # --- reveal control: the single, obvious way forward --------------------
-    UI.gap(12)
-    _reveal_control(beat)
-
-    # --- claims -------------------------------------------------------------
-    if legacy:
-        UI.gap(20)
-        UI.claims(c, legacy, spec)
-        if spec.get("note"):
-            UI.gap(8)
-            UI.h(f"<div class='ge-card ge-card-quiet' style='border-style:dashed'>"
-                 f"<div class='ge-small'>{spec['note']}</div></div>")
-
-    # --- governed answer + provenance ---------------------------------------
-    if beat >= MAX_BEAT and result:
-        UI.h("<hr class='ge-rule'/>")
-        UI.answer_block(c, spec, result)
-        UI.gap(20)
-        UI.receipt(c, spec, result)
-
-    # --- depth: unlocks only after the governed answer is revealed ----------
-    if beat >= MAX_BEAT:
-        UI.gap(28)
-        UI.h("<hr class='ge-rule'/>")
-        UI.h(TH.eyebrow("Underneath the answer", "layers"))
+    typed_question = None
+    if mode == "governed":
         UI.gap(6)
+        typed_question = UI.governed_ask_box(caps)
 
-        titles = ["Metrics board", "Dimension drilldown", "Ontology", "Zero identifiers"]
-        panels = [UI.metrics_board, UI.drilldown_panel, UI.ontology_panel, UI.zero_id_panel]
+    if clicked is not None:
+        on_ask(mode, metric_key, spec, clicked["ask"], clicked["team"], clicked["system"], clicked)
+        TH.rerun()
+    elif typed_question:
+        routed_metric, _ = A.route(typed_question, default=metric_key)
+        if routed_metric != metric_key:
+            st.session_state["metric"] = routed_metric
+        on_ask("governed", routed_metric, D.METRICS[routed_metric],
+               typed_question, "You", "Cortex Analyst", None)
+        TH.rerun()
 
-        if caps.get("tabs"):
-            for tab, panel in zip(st.tabs(titles), panels):
-                with tab:
-                    UI.gap(8)
-                    panel(c)
-        else:
-            choice = st.radio("Section", titles, horizontal=True,
-                              label_visibility="collapsed", key="drawer")
-            UI.gap(8)
-            panels[titles.index(choice)](c)
+    UI.gap(20)
+
+    all_legacy = D.legacy_answers(metric_key)
+    revealed_teams = st.session_state["revealed"].get(metric_key, set())
+    revealed = [l for l in all_legacy if l["team"] in revealed_teams]
+    sample = D.iot_sample() if metric_key == "otd" else None
+
+    if mode == "ungoverned":
+        entry = latest_entry(st.session_state["trace"], "ungoverned", metric_key)
+        UI.ungoverned_panel(c, spec, entry, revealed, sample)
     else:
-        UI.gap(16)
-        UI.h(f"<div class='ge-small' style='text-align:center;color:var(--ge-muted)'>"
-             f"{C.DEPTH_LOCKED_HINT}</div>")
+        gov_entries = [e for e in st.session_state["trace"]
+                      if e["mode"] == "governed" and e["metric_key"] == metric_key]
+        entry = gov_entries[0] if gov_entries else None
+        governed_marker = entry["value"] if entry else None
+        UI.governed_panel(c, spec, entry, revealed, sample, governed_marker, caps)
 
     _footer(caps)
-
-
-def _reveal_control(beat: int) -> None:
-    """The one control that drives the demo. Deliberately prominent and centred,
-    with a step indicator and a caption saying what the next click does."""
-    # Progress dots + step label.
-    dots = "".join(
-        f"<span style='display:inline-block;width:30px;height:4px;border-radius:2px;"
-        f"margin:0 4px;background:"
-        f"{'var(--ge-accent)' if i <= beat else 'var(--ge-hairline)'}'></span>"
-        for i in range(1, MAX_BEAT + 1)
-    )
-    UI.h(
-        f"<div style='text-align:center'>"
-        f"<div class='ge-eyebrow' style='margin-bottom:8px'>Step {min(beat, MAX_BEAT)} of {MAX_BEAT}</div>"
-        f"<div>{dots}</div></div>"
-    )
-    UI.gap(10)
-
-    _, mid, _ = st.columns([1, 1.4, 1])
-    with mid:
-        if beat < MAX_BEAT:
-            if st.button(C.BEAT_CTA[beat], type="primary", use_container_width=True):
-                st.session_state["beat"] = beat + 1
-                TH.rerun()
-            hint = C.NEXT_HINT.get(beat)
-            if hint:
-                UI.h(f"<div class='ge-small' style='text-align:center;margin-top:8px;"
-                     f"color:var(--ge-muted)'>{hint}</div>")
-        else:
-            if st.button("↺  Ask another question", use_container_width=True):
-                st.session_state.update(beat=0, question=None, result=None)
-                st.session_state.pop("_last_persona", None)
-                TH.rerun()
 
 
 def _footer(caps: dict) -> None:

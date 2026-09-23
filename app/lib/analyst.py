@@ -31,6 +31,7 @@ governed answer whose provenance is unclear would defeat the entire point.
 
 from __future__ import annotations
 
+import concurrent.futures
 import json
 import time
 
@@ -40,6 +41,9 @@ from lib import data as D
 
 ANALYST_PATH = "/api/v2/cortex/analyst/message"
 SPCS_TOKEN_PATH = "/snowflake/session/token"
+
+COMPLETE_MODEL = "llama3.1-8b"
+COMPLETE_TIMEOUT_S = 8
 
 
 class Result:
@@ -238,6 +242,70 @@ def ask(question: str, metric_key: str) -> Result:
         r.source = "fallback" if r.value is not None else "error"
         if not r.sql:
             r.sql = D.governed_sql(spec["metric"])
+
+    r.latency_ms = int((time.time() - started) * 1000)
+    return r
+
+
+# ---------------------------------------------------------------------------
+# Siloed department agent (Ungoverned mode)
+# ---------------------------------------------------------------------------
+# Ungoverned mode's "agent" is real, not simulated: a single Cortex Complete
+# call rephrases the question, but the prompt scopes it to exactly one
+# department's system and forbids it from knowing about anything else -
+# there is no semantic view or ontology in scope here at all. The SQL that
+# follows is always that department's own fixed, canned report; legacy
+# systems in this story do not do text-to-SQL, they run one report each.
+#
+# If the LLM call fails or is slow, a templated line takes its place instead
+# of blocking the demo - and `source` records which happened, because a
+# governance demo cannot itself misrepresent where a number came from.
+
+def _cortex_complete(prompt: str, model: str = COMPLETE_MODEL) -> str:
+    """One-shot Cortex Complete call, bind-parameterised. Raises on failure."""
+    df = D.session().sql(
+        "SELECT SNOWFLAKE.CORTEX.COMPLETE(?, ?) AS response",
+        params=[model, prompt],
+    ).to_pandas()
+    if df.empty:
+        raise RuntimeError("empty response")
+    return str(df.iloc[0, 0]).strip()
+
+
+def siloed_ask(question: str, entry: dict) -> Result:
+    """Answer ``question`` as a single department's siloed system.
+
+    ``entry`` is one item from a metric's ``legacy`` list in ``data.py``
+    (has ``team``, ``system``, ``definition``, ``sql``).
+    """
+    r = Result(question)
+    started = time.time()
+
+    prompt = (
+        f"You are the {entry['system']} reporting tool used by the "
+        f"{entry['team']} team. You have no knowledge of any other system, "
+        f"database, or company-wide semantic layer - only {entry['system']}. "
+        f"In one short sentence, confirm what you are about to look up for "
+        f'this question, in your own words: "{question}"'
+    )
+
+    try:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+            future = pool.submit(_cortex_complete, prompt)
+            r.text = future.result(timeout=COMPLETE_TIMEOUT_S)
+        r.source = "llm_rephrase"
+        r.transport = "cortex_complete"
+    except Exception as exc:
+        r.text = f"Checking {entry['system']} for {entry['definition'].lower()}…"
+        r.source = "template_fallback"
+        r.error = str(exc)
+
+    r.sql = entry["sql"]
+    try:
+        val = D.scalar(entry["sql"])
+        r.value = None if val is None else float(val)
+    except Exception as exc:
+        r.error = (f"{r.error} | {exc}") if r.error else str(exc)
 
     r.latency_ms = int((time.time() - started) * 1000)
     return r

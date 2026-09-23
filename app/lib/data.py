@@ -190,6 +190,7 @@ METRICS = {
             {
                 "team": "Operations",
                 "system": "ERP",
+                "ask": "Are we hitting our ship dates?",
                 "definition": "Ship-confirm before requested date",
                 "flaw": "Excludes cancelled and backorder rows from the denominator",
                 "sql": """SELECT ROUND(SUM(CASE WHEN ACTUAL_SHIP_DATE <= REQUESTED_SHIP_DATE
@@ -200,6 +201,7 @@ WHERE ORDER_STATUS = 'COMPLETE'""",
             {
                 "team": "Logistics",
                 "system": "TMS",
+                "ask": "How is our delivery performance tracking?",
                 "definition": "Delivery before promised date",
                 "flaw": "Promised date already contains a 2-day carrier buffer",
                 "sql": """SELECT ROUND(SUM(CASE WHEN FINAL_DELIVERY_DATE <= PROMISED_DELIVERY_DATE
@@ -209,6 +211,7 @@ FROM SUPPLY_CHAIN.SOURCE_LOGISTICS_TMS.DELIVERIES""",
             {
                 "team": "Procurement",
                 "system": "Supplier Portal",
+                "ask": "What's our receiving on-time rate?",
                 "definition": "ASN receipt before planned date",
                 "flaw": "Drops in-transit shipments, hiding the worst cases",
                 "sql": """SELECT ROUND(SUM(CASE WHEN ACTUAL_RECEIPT_DATE <= PLANNED_RECEIPT_DATE
@@ -245,6 +248,7 @@ WHERE SHIPMENT_STATUS = 'RECEIVED'""",
             {
                 "team": "Planning",
                 "system": "ERP forecast",
+                "ask": "What's our stock coverage look like?",
                 "definition": "Stock divided by forecast daily demand",
                 "flaw": "Forecast carries optimism bias, so coverage looks tighter than it is",
                 "sql": """SELECT ROUND(AVG(inv.current_stock
@@ -257,6 +261,7 @@ JOIN SUPPLY_CHAIN.SOURCE_ERP.demand_forecast f
             {
                 "team": "Finance",
                 "system": "Finance ledger",
+                "ask": "How many days of inventory are we carrying, dollar-wise?",
                 "definition": "Inventory value divided by daily COGS",
                 "flaw": "Dollar-based, not unit-based - same word 'days', different scale entirely",
                 "sql": """SELECT ROUND(AVG(inv.inventory_value
@@ -287,6 +292,7 @@ JOIN SUPPLY_CHAIN.SOURCE_FINANCE.daily_cogs cogs
             {
                 "team": "Procurement",
                 "system": "Supplier Portal",
+                "ask": "What are we paying per unit landed?",
                 "definition": "PO price plus quoted freight",
                 "flaw": "Omits customs duty and handling, understating true cost",
                 "sql": """SELECT ROUND(AVG(dp.unit_cost
@@ -298,6 +304,7 @@ LEFT JOIN SUPPLY_CHAIN.SOURCE_SUPPLIER_PORTAL.freight_quotes fq
             {
                 "team": "Logistics",
                 "system": "Freight invoices",
+                "ask": "What's freight and customs costing us per unit?",
                 "definition": "Actual freight plus customs",
                 "flaw": "Contains no purchase price at all - not a landed cost in any real sense",
                 "sql": """SELECT ROUND(AVG(fi.freight_cost + fi.customs_duty), 3) AS v
@@ -324,6 +331,7 @@ FROM SUPPLY_CHAIN.SOURCE_LOGISTICS_TMS.freight_invoices fi""",
             {
                 "team": "Procurement",
                 "system": "Supplier Portal",
+                "ask": "Are our suppliers filling our POs completely?",
                 "definition": "Units received over units ordered on POs",
                 "flaw": "Measures supplier-to-us flow, not us-to-customer - a different concept wearing the same name",
                 "sql": """SELECT ROUND(SUM(qty_received)
@@ -333,6 +341,7 @@ FROM SUPPLY_CHAIN.SOURCE_SUPPLIER_PORTAL.purchase_orders""",
             {
                 "team": "Warehouse",
                 "system": "TMS pick ops",
+                "ask": "Are we picking orders complete?",
                 "definition": "Units picked over units ordered on pick lists",
                 "flaw": "Measures warehouse execution, not whether the customer got a complete order",
                 "sql": """SELECT ROUND(SUM(units_picked)
