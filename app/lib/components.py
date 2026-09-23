@@ -383,17 +383,13 @@ def answer_block(c: dict, spec: dict, result) -> None:
             h(TH.eyebrow("The SQL it ran", "database"))
             st.code(result.sql.strip(), language="sql")
 
-    if result.error:
-        gap(4)
-        h(f"""
-        <div class="ge-card" style="border-color:var(--ge-hairline)">
-          <div class="ge-eyebrow" style="margin-bottom:4px">Transport note</div>
-          <div class="ge-small">Analyst call did not return usable content, so the
-          value was taken directly from the semantic view. The governed number is
-          unaffected — only the path to it changed.</div>
-          <div class="ge-mono" style="font-size:10.5px;margin-top:8px;color:var(--ge-muted)">{result.error[:300]}</div>
-        </div>
-        """)
+    # No separate "Transport note" card: on this runtime, Cortex Analyst's
+    # REST call is architecturally unreachable (SPCS session token isn't
+    # valid for that endpoint outside the SQL connector - a documented
+    # Snowflake platform limitation, not a bug to keep surfacing). The path
+    # pill above already discloses "Semantic view (direct SQL)" honestly;
+    # a raw exception dump on every single ask added noise without being
+    # actionable. ``result.error`` is still recorded, just not rendered.
 
 
 # ---------------------------------------------------------------------------
