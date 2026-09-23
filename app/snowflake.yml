@@ -1,0 +1,40 @@
+# Deployment manifest for the Governed Answer Engine.
+#
+# This is a SEPARATE Streamlit object from the legacy SUPPLY_CHAIN_ONTOLOGY_APP
+# at the repository root. That object was created with the ROOT_LOCATION
+# parameter, which Snowflake only supports on the warehouse runtime - which is
+# why its DESCRIBE output shows an empty compute_pool and runtime_name despite
+# the root manifest requesting a container runtime.
+#
+# This manifest creates a FROM-based object instead, which is the only way to
+# get the container runtime (Streamlit 1.50+, Components v2, module imports,
+# cross-session caching). The legacy app is left intact.
+#
+# Deploy from THIS directory so that the source root is app/, which puts
+# streamlit_app.py at the root of the deployed source and makes `from lib import ...`
+# resolve correctly.
+#
+#   cd app
+#   snow streamlit deploy --replace --connection GC94671
+
+definition_version: 2
+
+entities:
+  governed_answer_engine:
+    type: streamlit
+    identifier:
+      name: GOVERNED_ANSWER_ENGINE
+      database: SUPPLY_CHAIN
+      schema: SEMANTIC_MODELS
+    title: Governed Answer Engine
+    # On a container runtime, query_warehouse is the warehouse used for the
+    # app's SQL; the app code itself runs on the compute pool node.
+    query_warehouse: COMPUTE_WH
+    runtime_name: SYSTEM$ST_CONTAINER_RUNTIME_PY3_11
+    compute_pool: SYSTEM_COMPUTE_POOL_CPU
+    main_file: streamlit_app.py
+    artifacts:
+      - streamlit_app.py
+      - pyproject.toml
+      - lib/*.py
+      - .streamlit/config.toml

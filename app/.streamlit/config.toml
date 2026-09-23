@@ -1,0 +1,18 @@
+# Base theme for the Governed Answer Engine.
+#
+# Only long-supported keys are set here so the file is safe on both the legacy
+# warehouse runtime and the container runtime. Typography is deliberately NOT
+# configured via [[theme.fontFaces]] (Streamlit 1.45+ only) - fonts are loaded
+# with @font-face inside injected CSS instead, which works on every Streamlit
+# version and is permitted by the SiS Content Security Policy (fonts may be
+# fetched from any HTTPS domain).
+#
+# Dark is the base because it is the demo default; light mode is applied at
+# runtime by re-injecting CSS custom properties.
+
+[theme]
+base = "dark"
+primaryColor = "#29B5E8"
+backgroundColor = "#0B0E14"
+secondaryBackgroundColor = "#12161F"
+textColor = "#E6EAF2"

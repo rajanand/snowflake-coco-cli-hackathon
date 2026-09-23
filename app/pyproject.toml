@@ -1,0 +1,29 @@
+# Container-runtime dependencies (installed with uv).
+#
+# A dependency file is REQUIRED on the container runtime: without one the
+# manager fails with "Could not find a pyproject.toml or requirements.txt"
+# and the app never initializes.
+#
+# Version specifiers are only safe when an artifact repository is attached,
+# otherwise a base-image update can break the pins. This app attaches
+# Snowflake's built-in PyPI mirror:
+#
+#   ALTER STREAMLIT ... SET ARTIFACT_REPOSITORIES = (snowflake.snowpark.pypi_shared_repository);
+#
+# The mirror requires no outbound internet access and no External Access
+# Integration, which matters on this trial account where no EAI exists.
+#
+# streamlit[snowflake] pulls in snowflake-snowpark-python. requests is needed
+# for the SPCS OAuth transport in lib/analyst.py, because the _snowflake
+# module is NOT available on container runtimes.
+
+[project]
+name = "governed-answer-engine"
+version = "1.0.0"
+requires-python = ">=3.11"
+dependencies = [
+    "streamlit[snowflake]>=1.50.0",
+    "pandas>=2.0.0",
+    "altair>=5.0.0",
+    "requests>=2.31.0",
+]
