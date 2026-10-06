@@ -163,6 +163,38 @@ def on_ask(mode: str, metric_key: str, spec: dict, question: str,
     st.session_state["trace"].insert(0, entry)
 
 
+def on_unmatched(question: str) -> None:
+    """Record a free-text ask that matched no metric's vocabulary at all.
+
+    ``A.route()`` always returns a best-effort metric key so the UI has
+    something to fall back on, but a zero score means the question shares no
+    vocabulary with any metric's synonyms - routing it anyway would silently
+    answer an unrelated question with whatever metric happened to be
+    selected. That must be flagged, not hidden, in both the trace log and a
+    toast, consistent with every other ask being fully traced.
+    """
+    entry = {
+        "mode": "governed",
+        "metric_key": None,
+        "metric_label": C.NO_MATCH_METRIC_LABEL,
+        "team": "You",
+        "system": "Cortex Analyst",
+        "question": question,
+        "question_echo": "",
+        "steps": [
+            {"label": C.TRACE_STEP_UNDERSTAND, "detail": question, "kind": "text"},
+            {"label": C.TRACE_STEP_NO_MATCH, "detail": C.NO_MATCH_DETAIL, "kind": "text"},
+        ],
+        "value": None,
+        "shown": C.NO_MATCH_SHOWN,
+        "source": "unmatched",
+        "latency_ms": 0,
+    }
+    st.session_state["trace_seq"] += 1
+    entry["id"] = st.session_state["trace_seq"]
+    st.session_state["trace"].insert(0, entry)
+
+
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
@@ -200,11 +232,20 @@ def main() -> None:
         on_ask(mode, metric_key, spec, clicked["ask"], clicked["team"], clicked["system"], clicked)
         TH.rerun()
     elif typed_question:
-        routed_metric, _ = A.route(typed_question, default=metric_key)
-        if routed_metric != metric_key:
-            st.session_state["metric"] = routed_metric
-        on_ask("governed", routed_metric, D.METRICS[routed_metric],
-               typed_question, "You", "Cortex Analyst", None)
+        routed_metric, score = A.route(typed_question, default=metric_key)
+        if score == 0:
+            on_unmatched(typed_question)
+            metrics_list = ", ".join(m["label"] for m in D.METRICS.values())
+            message = C.NO_MATCH_TOAST.format(metrics=metrics_list)
+            if caps.get("toast"):
+                st.toast(message, icon="⚠️")
+            else:
+                st.warning(message)
+        else:
+            if routed_metric != metric_key:
+                st.session_state["metric"] = routed_metric
+            on_ask("governed", routed_metric, D.METRICS[routed_metric],
+                   typed_question, "You", "Cortex Analyst", None)
         TH.rerun()
 
     UI.gap(20)

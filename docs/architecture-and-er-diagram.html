@@ -7,19 +7,23 @@
   <title>Supply Chain Ontology — Architecture &amp; ER Diagram</title>
   <script type="application/json" id="snowflake-report-metadata">
   {
-    "generated": "2026-09-12",
-    "intent": "Visualize the medallion architecture and entity-relationship model for the SUPPLY_CHAIN database, per .snowflake/cortex/plans/supply-chain-ontology-revised.plan.md",
+    "generated": "2026-10-06",
+    "intent": "Reflect the AS-BUILT architecture and entity-relationship model for the SUPPLY_CHAIN database, updated from the original pre-build plan snapshot to match what actually shipped.",
     "dataSources": [
-      { "type": "file", "path": ".snowflake/cortex/plans/supply-chain-ontology-revised.plan.md" },
-      { "type": "file", "path": "sql/00_source_schemas/00_setup_role.sql" },
-      { "type": "file", "path": "sql/00_source_schemas/README.md" },
-      { "type": "file", "path": "sql/01_bronze/README.md" }
+      { "type": "file", "path": "README.md" },
+      { "type": "file", "path": "sql/04_semantic_view/supply_chain_ontology_semantic_view.sql" },
+      { "type": "file", "path": "sql/03_gold/create_gold_dynamic_tables.sql" },
+      { "type": "file", "path": "sql/07_rbac/create_analyst_and_executor_roles.sql" },
+      { "type": "file", "path": "agents/agent_router.py" },
+      { "type": "file", "path": "app/streamlit_app.py" },
+      { "type": "file", "path": "streamlit_app.py" },
+      { "type": "file", "path": "docs/pending-gaps.md" }
     ],
     "sections": [
-      { "id": "architecture", "title": "Medallion architecture",
-        "producerNotes": "Layers and phases transcribed from the plan's 'Database Structure' and 'Repo Structure' sections. BRONZE is implemented; SILVER/GOLD/SEMANTIC_MODELS/AUTOMATION are planned (status: pending)." },
-      { "id": "er-diagram", "title": "Entity-relationship diagram (Gold layer ontology)",
-        "producerNotes": "Entities, grains, and relationships transcribed from the plan's Phase 4 'Entities / Relationships / Hierarchies' section and the native SEMANTIC VIEW DDL." }
+      { "id": "architecture", "title": "Medallion architecture (as built)",
+        "producerNotes": "Phases 0-5 and 7, plus Governance/Ops, are built and have recorded execution evidence (see README.md 'Current status' and each sql/ phase README). AUTOMATION (Phase 8, Tasks/alerting) and the custom CoCo skill are explicitly deferred by decision, not oversight -- see docs/pending-gaps.md." },
+      { "id": "er-diagram", "title": "Entity-relationship diagram (deployed Semantic View)",
+        "producerNotes": "Transcribed directly from the live TABLES/RELATIONSHIPS/FACTS/DIMENSIONS/METRICS clauses in sql/04_semantic_view/supply_chain_ontology_semantic_view.sql -- 9 tables, 10 relationships, 5 metrics, 5 dimensions, 4 facts, matching README.md's structural-validation claim." }
     ]
   }
   </script>
@@ -52,6 +56,7 @@
     }
     .badge-done { background: light-dark(#dcfce7, #14532d); color: light-dark(#166534, #bbf7d0); }
     .badge-pending { background: light-dark(#fef3c7, #78350f); color: light-dark(#92400e, #fde68a); }
+    .badge-deferred { background: light-dark(#fee2e2, #7f1d1d); color: light-dark(#991b1b, #fecaca); }
     .legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: 0.85rem; margin: 8px 0 0; color: light-dark(#4b5563, #9ca3af); }
     .table-wrap { overflow-x: auto; margin: 12px 0; }
     table { border-collapse: collapse; width: 100%; font-size: 0.88rem; }
@@ -64,19 +69,20 @@
 <body>
 
   <h1>Supply Chain Ontology — Architecture &amp; ER Diagram</h1>
-  <p class="subtitle">SUPPLY_CHAIN database · generated from <code>.snowflake/cortex/plans/supply-chain-ontology-revised.plan.md</code></p>
+  <p class="subtitle">SUPPLY_CHAIN database · as-built, generated from <code>README.md</code> and the deployed object DDLs (not the pre-build plan)</p>
 
-  <h2 id="architecture">Medallion architecture</h2>
+  <h2 id="architecture">Medallion architecture (as built)</h2>
   <p>
     Five fragmented source systems land into a unified <code>BRONZE</code> layer, are resolved into one
-    canonical <code>SILVER</code> layer (entity resolution + governance-approved metric definitions), modeled
-    dimensionally in <code>GOLD</code>, exposed as a governed <code>SEMANTIC_MODELS</code> layer, and operationalized
-    via <code>AUTOMATION</code>. Consumption happens through a hybrid agent router, Streamlit, and (stretch) Snowsight /
-    Slack.
+    canonical <code>SILVER</code> layer (entity resolution via <code>shipment_crosswalk</code> + governance-approved
+    metric definitions), modeled dimensionally in <code>GOLD</code> (28 Dynamic Tables), and exposed as a governed
+    <code>SEMANTIC_MODELS</code> layer — a native <code>SEMANTIC VIEW</code> plus Cortex Search over supplier
+    contract PDFs. A multi-agent router and two deployed Streamlit apps consume only that governed layer, never
+    the raw source tables. RBAC, Marketplace enrichment, and a Workspace artifact round out governance and ops.
   </p>
   <div class="legend">
-    <span><span class="badge badge-done">Built</span> BRONZE and Phase 0 sources</span>
-    <span><span class="badge badge-pending">Planned</span> SILVER → AUTOMATION and consumption layers</span>
+    <span><span class="badge badge-done">Built</span> Phases 0-5, 7, Governance &amp; Ops — recorded execution evidence in each sql/ phase README</span>
+    <span><span class="badge badge-deferred">Deferred</span> AUTOMATION (Tasks/alerting) and a packaged CoCo skill — explicit decision, not oversight (docs/pending-gaps.md)</span>
   </div>
 
   <div class="card">
@@ -91,39 +97,46 @@ flowchart TB
     FIN["SOURCE_FINANCE\ndaily_cogs, overhead_allocation"]
   end
 
-  subgraph P1["Phase 1 — BRONZE (unified raw landing)"]
-    BRZ["17 tables\nRAW_PAYLOAD VARIANT + _METADATA\n(11 ingested + 6 net-new)"]
+  subgraph P1["Phase 1 — BRONZE"]
+    BRZ["Unified raw landing zone\n17 tables, RAW_PAYLOAD VARIANT"]
   end
 
-  subgraph P2["Phase 2 — SILVER (canonical, Dynamic Tables)"]
-    XWALK["shipment_crosswalk\n(entity resolution: fuzzy supplier match,\ndate-proximity join)"]
-    SLV["Type-cast, deduplicated,\none governance-approved\nmetric definition per KPI"]
+  subgraph P2["Phase 2 — SILVER"]
+    XWALK["shipment_crosswalk\nentity resolution across\nERP / TMS / Portal / IoT"]
+    SLV["Canonical, deduplicated,\none governance-approved\nmetric definition per KPI"]
   end
 
-  subgraph P3["Phase 3 — GOLD (dimensional model, Dynamic Tables)"]
-    DIMS["dim_supplier (SCD2), dim_part,\ndim_plant, dim_customer, dim_date"]
-    FACTS["fact_shipment, fact_order_fulfillment,\nfact_inventory_snapshot, fact_quality_event"]
+  subgraph P3["Phase 3 — GOLD (28 Dynamic Tables)"]
+    DIMS["dim_supplier, dim_part,\ndim_plant, dim_customer, dim_date"]
+    FACTS["fact_shipment, fact_order_fulfillment,\nfact_purchase_order, fact_inventory_snapshot,\nfact_landed_cost, fact_quality_event,\nfact_pick_operation"]
     BRIDGE["bridge_supplier_part"]
     AGG["agg_supplier_performance"]
   end
 
-  subgraph P4["Phase 4 — SEMANTIC_MODELS (governed consumption)"]
-    SV["SEMANTIC VIEW\nSUPPLY_CHAIN_ONTOLOGY\n(facts, dims, metrics, synonyms)"]
-    CS["Cortex Search\nsupply_chain_documents"]
+  subgraph P4["Phase 4 — SEMANTIC_MODELS"]
+    SV["SEMANTIC VIEW SUPPLY_CHAIN_ONTOLOGY\n9 tables · 10 relationships\n5 metrics · 5 dimensions · 4 facts"]
+    CS["Cortex Search\nsupply_chain_documents\n(11 supplier contract PDFs)"]
+  end
+
+  subgraph GOV["Governance & Ops"]
+    direction LR
+    RBAC["SUPPLY_CHAIN_ANALYST_RO\nSUPPLY_CHAIN_TASK_EXECUTOR\n(least-privilege RBAC)"]
+    MKT["Marketplace enrichment\nPelmorex weather (free listing)\nvs. shipment risk"]
+    WS["Workspace artifact\nlegacy_before_queries.sql"]
+  end
+
+  subgraph P5["Phase 5 — Multi-Agent Router"]
     CA["Cortex Analyst"]
+    ROUTER["agent_router.py\n5-intent classifier -> 4 sub-agents\n+ Pre/Post-query guardrails"]
   end
 
-  subgraph P8["Phase 8 — AUTOMATION"]
-    TASKS["Tasks: refresh_at_risk_orders,\ndaily_health_snapshot"]
-    ALERTS["at_risk_orders_snapshot,\ndaily_health_metrics"]
-    NOTIF["Notification Integration\n/ MCP Slack alert"]
+  subgraph P7["Phase 7 — Deployed Streamlit Apps"]
+    LEGACY["SUPPLY_CHAIN_ONTOLOGY_APP\n(warehouse runtime)\n6 Acts: chaos -> governed truth\n-> cross-persona -> ... -> live ops"]
+    GAE["GOVERNED_ANSWER_ENGINE\n(container runtime)\nUngoverned/Governed toggle\n+ sidebar trace log"]
   end
 
-  subgraph CONSUME["Consumption Surfaces"]
-    ROUTER["Hybrid Agent Router\n(pre/post-query hooks,\nsub-agents, confidence fallback)"]
-    ST["Streamlit App\n(Before / After / Zero-ID / Explorer)"]
-    SNOW["Snowsight Cloud Agent"]
-    SLACK["Slackbot (stretch)"]
+  subgraph P8["Phase 8 — AUTOMATION (deferred)"]
+    TASKS["Tasks + Slack/email alerting\ndeferred by explicit decision,\nnot started"]
   end
 
   ERP --> BRZ
@@ -143,135 +156,157 @@ flowchart TB
 
   SV --> CA
   CS --> CA
-  SV --> TASKS
-  TASKS --> ALERTS --> NOTIF
-
   CA --> ROUTER
-  ROUTER --> ST
-  ROUTER --> SNOW
-  ROUTER --> SLACK
+  CA --> LEGACY
+  CA --> GAE
+  ROUTER --> LEGACY
+  ROUTER --> GAE
+
+  P4 -.-> GOV
+  SV -. deferred .-> TASKS
 
   classDef done fill:#dcfce7,stroke:#166534,color:#14532d;
-  classDef pending fill:#fef3c7,stroke:#92400e,color:#78350f,stroke-dasharray: 4 3;
-  class ERP,TMS,SUP,IOT,FIN,BRZ done;
-  class XWALK,SLV,DIMS,FACTS,BRIDGE,AGG,SV,CS,CA,TASKS,ALERTS,NOTIF,ROUTER,ST,SNOW,SLACK pending;
+  classDef deferred fill:#fee2e2,stroke:#991b1b,color:#7f1d1d,stroke-dasharray: 4 3;
+  class ERP,TMS,SUP,IOT,FIN,BRZ,XWALK,SLV,DIMS,FACTS,BRIDGE,AGG,SV,CS,RBAC,MKT,WS,CA,ROUTER,LEGACY,GAE done;
+  class TASKS deferred;
     </pre>
   </div>
 
-  <h2 id="er-diagram">Entity-relationship diagram (Gold layer ontology)</h2>
+  <h2 id="er-diagram">Entity-relationship diagram (deployed Semantic View)</h2>
   <p>
-    Nine business entities from the plan's Phase 4 ontology, modeled at their Gold-layer grain.
-    <code>Shipment → Invoice</code> is deliberately 0-or-1 — that gap is the root cause of the Landed Cost
-    metric fragmentation in the headline demo.
+    Nine business entities exactly as declared in the live <code>CREATE SEMANTIC VIEW SUPPLY_CHAIN_ONTOLOGY</code>
+    object — not the pre-build plan's entity list. <code>bridge_supplier_part</code> and
+    <code>fact_quality_event</code> exist as Gold Dynamic Tables but are deliberately <em>not</em> exposed through
+    the semantic view, so they're omitted here too. <code>Shipment ↔ LandedCost</code> is the one 1-to-1
+    relationship — every other link below is one dimension to many facts.
   </p>
 
   <div class="card">
     <pre class="mermaid">
 erDiagram
   SUPPLIER {
-    string supplier_id PK
+    number supplier_key PK
+    string supplier_id
     string supplier_name
     string tier_name
     string region
-    date   scd_effective_date
-    date   scd_end_date
   }
   PART {
-    string part_id PK
-    string sku
+    number part_key PK
+    string part_id
+    string part_name
     string category
     number unit_cost
+    string uom
   }
   PLANT {
-    string plant_id PK
-    string plant_code
-    string country
+    number plant_key PK
+    string plant_id
+    string plant_name
     string region
+    string plant_type
   }
   CUSTOMER {
-    string customer_id PK
+    number customer_key PK
+    string customer_id
     string customer_name
     string customer_segment
-  }
-  SUPPLIER_PART {
-    string supplier_id FK
-    string part_id FK
+    string region
   }
   SHIPMENT {
     string shipment_id PK
-    string supplier_id FK
-    string part_id FK
-    string plant_id FK
-    string canonical_shipment_id
-    date   plant_dock_receipt_date
-    boolean on_time_flag
+    number supplier_key FK
+    number part_key FK
+    number plant_key FK
+    boolean is_on_time
     number value_usd
-  }
-  INVOICE {
-    string invoice_number PK
-    string shipment_id FK
-    number freight_cost
-    number customs_duty
-    date   invoice_date
   }
   CUSTOMER_ORDER {
     string customer_order_id PK
-    string customer_id FK
-    string part_id FK
+    number customer_key FK
+    number part_key FK
     number qty_ordered
     number qty_shipped
     boolean on_time_flag
+    boolean fill_flag
+  }
+  PURCHASE_ORDER {
+    string po_number PK
+    number supplier_key FK
+    number part_key FK
+    number qty_ordered
+    number qty_received
   }
   INVENTORY_SNAPSHOT {
-    string part_id FK
-    string plant_id FK
+    string snapshot_id PK
+    number plant_key FK
+    number part_key FK
     date   snapshot_date
     number current_stock
-    number inventory_value
+    number days_of_inventory
   }
-  QUALITY_EVENT {
-    string quality_event_id PK
-    string part_id FK
-    date   event_date
-    string defect_type
+  LANDED_COST {
+    string shipment_id PK
+    number part_key FK
+    number unit_cost
+    number freight_cost_per_unit
+    number customs_duty_per_unit
+    number handling_fee_per_unit
+    number landed_cost_per_unit
   }
 
-  SUPPLIER ||--o{ SUPPLIER_PART : "supplies"
-  PART ||--o{ SUPPLIER_PART : "sourced via"
-  SUPPLIER ||--o{ SHIPMENT : "ships"
-  PART ||--o{ SHIPMENT : "is shipped in"
-  PLANT ||--o{ SHIPMENT : "receives"
-  SHIPMENT ||--o| INVOICE : "billed by (0-or-1)"
-  CUSTOMER ||--o{ CUSTOMER_ORDER : "places"
-  PART ||--o{ CUSTOMER_ORDER : "ordered as"
-  PART ||--o{ INVENTORY_SNAPSHOT : "tracked as"
-  PLANT ||--o{ INVENTORY_SNAPSHOT : "stores"
-  PART ||--o{ QUALITY_EVENT : "flagged by"
+  SUPPLIER ||--o{ SHIPMENT : "shipment_to_supplier"
+  PART ||--o{ SHIPMENT : "shipment_to_part"
+  PLANT ||--o{ SHIPMENT : "shipment_to_plant"
+  PART ||--o{ CUSTOMER_ORDER : "order_to_part"
+  CUSTOMER ||--o{ CUSTOMER_ORDER : "order_to_customer"
+  SUPPLIER ||--o{ PURCHASE_ORDER : "po_to_supplier"
+  PART ||--o{ PURCHASE_ORDER : "po_to_part"
+  PLANT ||--o{ INVENTORY_SNAPSHOT : "inventory_to_plant"
+  PART ||--o{ INVENTORY_SNAPSHOT : "inventory_to_part"
+  SHIPMENT ||--|| LANDED_COST : "landed_cost_to_shipment"
     </pre>
   </div>
 
   <h3>Grain reference</h3>
   <div class="table-wrap">
     <table>
-      <thead><tr><th>Entity</th><th>Grain</th></tr></thead>
+      <thead><tr><th>Entity</th><th>Gold source table</th><th>Grain</th></tr></thead>
       <tbody>
-        <tr><td>Supplier</td><td>one row per supplier (SCD2)</td></tr>
-        <tr><td>Part</td><td>one row per SKU</td></tr>
-        <tr><td>Plant</td><td>one row per facility</td></tr>
-        <tr><td>Customer</td><td>one row per customer</td></tr>
-        <tr><td>Shipment</td><td>one row per delivery</td></tr>
-        <tr><td>Invoice</td><td>one row per cost document (0-or-1 per shipment — the Landed Cost gap)</td></tr>
-        <tr><td>CustomerOrder</td><td>one row per order line</td></tr>
-        <tr><td>Inventory (snapshot)</td><td>one row per part-plant-day</td></tr>
-        <tr><td>QualityEvent</td><td>one row per defect</td></tr>
+        <tr><td>Supplier</td><td><code>dim_supplier</code></td><td>one row per supplier</td></tr>
+        <tr><td>Part</td><td><code>dim_part</code></td><td>one row per SKU</td></tr>
+        <tr><td>Plant</td><td><code>dim_plant</code></td><td>one row per facility</td></tr>
+        <tr><td>Customer</td><td><code>dim_customer</code></td><td>one row per customer</td></tr>
+        <tr><td>Shipment</td><td><code>fact_shipment</code></td><td>one row per entity-resolved shipment (<code>shipment_crosswalk</code>)</td></tr>
+        <tr><td>CustomerOrder</td><td><code>fact_order_fulfillment</code></td><td>one row per customer order line</td></tr>
+        <tr><td>PurchaseOrder</td><td><code>fact_purchase_order</code></td><td>one row per supplier-facing PO</td></tr>
+        <tr><td>InventorySnapshot</td><td><code>fact_inventory_snapshot</code></td><td>one row per part-plant-day</td></tr>
+        <tr><td>LandedCost</td><td><code>fact_landed_cost</code></td><td>one row per shipment (1:1 with Shipment)</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Canonical metrics — validated results (last recorded run)</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Metric</th><th>Value</th><th>Governance decision</th></tr></thead>
+      <tbody>
+        <tr><td>On-Time Delivery</td><td>64.875%</td><td>Plant-dock receipt vs. planned; cancelled/overdue-in-transit always count as late, never dropped</td></tr>
+        <tr><td>Customer Fill Rate</td><td>90.800%</td><td>Order-binary: <code>qty_shipped &gt;= qty_ordered</code></td></tr>
+        <tr><td>Supplier Fill Rate</td><td>86.294%</td><td>PO-level <code>SUM(qty_received)/SUM(qty_ordered)</code> — deliberately separate from Customer Fill Rate</td></tr>
+        <tr><td>Days of Inventory</td><td>48.60 days</td><td>30-day trailing <strong>actual</strong> demand, not forecast</td></tr>
+        <tr><td>Landed Cost / unit</td><td>$251.68</td><td>Unit cost + freight + customs + overhead, computed at shipment grain</td></tr>
       </tbody>
     </table>
   </div>
 
   <p>
-    Source plan: <code>.snowflake/cortex/plans/supply-chain-ontology-revised.plan.md</code> —
-    see Phase 3 (Gold dynamic tables) and Phase 4 (native <code>SEMANTIC VIEW</code> DDL) for the SQL
-    that materializes this model.
+    Source of truth for every claim above: <code>sql/04_semantic_view/supply_chain_ontology_semantic_view.sql</code>
+    (the live DDL — read it directly for the exact <code>COMMENT</code> on each metric) and
+    <code>README.md</code> §"The problem, in one table" / "Current status". The two deployed Streamlit apps
+    (<code>streamlit_app.py</code> at the repo root and <code>app/streamlit_app.py</code>) and
+    <code>agents/agent_router.py</code> consume this same semantic view — no second, drifting copy of these
+    definitions exists anywhere else in the codebase.
   </p>
 
   <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.6/dist/mermaid.min.js"></script>

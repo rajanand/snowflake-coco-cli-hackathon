@@ -1,6 +1,6 @@
 """Builds docs/hackathon-deck.pptx for the Snowflake CoCo CLI Hackathon submission.
 
-Design system (from the slides.com "Our Solar System" reference deck study):
+Design system:
   - Alternating black / cream slide backgrounds.
   - Small tracked ALL-CAPS "kicker" label above every headline.
   - Large bold headline, single blue accent color used sparingly.

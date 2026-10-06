@@ -74,6 +74,18 @@ TRACE_STEP_SCOPE_GOVERNED = "Scope: governed semantic view"
 TRACE_STEP_SQL_UNGOVERNED = "Running {system}'s canned report"
 TRACE_STEP_SQL_GOVERNED = "Resolving against the semantic view"
 TRACE_STEP_ANSWER = "Answer"
+TRACE_STEP_NO_MATCH = "No governed metric matched"
+
+NO_MATCH_METRIC_LABEL = "Unmatched"
+NO_MATCH_SHOWN = "No match"
+NO_MATCH_DETAIL = (
+    "This question shares no vocabulary with any metric's synonyms in the "
+    "semantic view, so nothing was routed or run - a governed answer must "
+    "come from the semantic view's own definitions, not a guess."
+)
+NO_MATCH_TOAST = (
+    "Couldn't match that to a governed metric - try asking about {metrics}."
+)
 
 # Shown in the trace when the ungoverned "understand" step used a real
 # Cortex Complete call vs. a templated line taken because the call failed or
