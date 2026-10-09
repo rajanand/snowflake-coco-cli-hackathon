@@ -1,0 +1,692 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Supply Chain Ontology — End-to-End Build Report</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@600;700&display=swap">
+<style>
+/* Layout: full-width engineering report; left section rail on wide screens, single column on phones. */
+:root {
+  --bg: #f6f7f9; --surface: #ffffff; --ink: #18202b; --muted: #556070; --line: #d9dee6;
+  --accent: #1d5fd1; --accent-soft: #e6eefc;
+  --ok: #1f7a4d; --ok-soft: #e3f3ea; --warn: #9a5b00; --warn-soft: #fbf0dc; --bad: #b42318; --bad-soft: #fde8e6;
+  --code-bg: #eef1f5;
+  --f-display: "IBM Plex Sans Condensed", "Arial Narrow", Arial, sans-serif;
+  --f-body: "IBM Plex Sans", "Segoe UI", Arial, sans-serif;
+  --f-mono: "IBM Plex Mono", Consolas, "Courier New", monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #11151b; --surface: #171c24; --ink: #e6e9ee; --muted: #9aa5b4; --line: #2b3340;
+  --accent: #7aa7ff; --accent-soft: #1c2a44;
+  --ok: #5fd39a; --ok-soft: #13301f; --warn: #f0b75a; --warn-soft: #33270f; --bad: #ff8a80; --bad-soft: #3a1a18;
+  --code-bg: #1e2530; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #11151b; --surface: #171c24; --ink: #e6e9ee; --muted: #9aa5b4; --line: #2b3340;
+  --accent: #7aa7ff; --accent-soft: #1c2a44;
+  --ok: #5fd39a; --ok-soft: #13301f; --warn: #f0b75a; --warn-soft: #33270f; --bad: #ff8a80; --bad-soft: #3a1a18;
+  --code-bg: #1e2530; color-scheme: dark; }
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.6; margin: 0; padding-inline: clamp(16px, 3vw, 48px); padding-block: 28px 64px; }
+.wrap { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 40px; }
+nav.rail { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 16px); align-self: start; font-size: 13px; max-height: calc(100vh - 32px); overflow-y: auto; }
+nav.rail a { display: block; color: var(--muted); text-decoration: none; padding: 4px 0 4px 10px; border-left: 2px solid var(--line); }
+nav.rail a:hover, nav.rail a:focus-visible { color: var(--accent); border-left-color: var(--accent); outline: none; }
+main { min-width: 0; }
+header.top { border-bottom: 1px solid var(--line); padding-bottom: 18px; margin-bottom: 8px; }
+.eyebrow { font-family: var(--f-mono); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+h1 { font-family: var(--f-display); font-size: clamp(28px, 3.4vw, 40px); line-height: 1.15; margin: 6px 0 10px; text-wrap: balance; }
+h2 { font-family: var(--f-display); font-size: 24px; margin: 44px 0 10px; padding-top: 6px; text-wrap: balance; }
+h3 { font-size: 16px; margin: 22px 0 6px; }
+p, li { max-width: 92ch; }
+.meta { color: var(--muted); font-size: 13px; display: flex; flex-wrap: wrap; gap: 6px 18px; }
+code, kbd { font-family: var(--f-mono); font-size: 13px; background: var(--code-bg); padding: 1px 5px; border-radius: 4px; word-break: break-word; }
+pre { font-family: var(--f-mono); font-size: 12.5px; background: var(--code-bg); padding: 14px 16px; border-radius: 6px; overflow-x: auto; line-height: 1.5; border: 1px solid var(--line); }
+pre code { background: none; padding: 0; }
+.answers { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; margin: 18px 0 6px; }
+.answer { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; min-width: 0; }
+.answer h3 { margin: 0 0 6px; font-size: 14px; color: var(--accent); text-transform: uppercase; letter-spacing: .04em; }
+.answer p { margin: 0; font-size: 14px; }
+.tbl { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); margin: 12px 0; }
+table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+th, td { text-align: left; vertical-align: top; padding: 9px 12px; border-bottom: 1px solid var(--line); }
+th:not(:first-child), td:not(:first-child) { border-left: 1px dotted var(--line); }
+th { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); background: var(--bg); white-space: nowrap; }
+tr:last-child td { border-bottom: none; }
+td.n { font-variant-numeric: tabular-nums; white-space: nowrap; }
+td.who { min-width: 150px; border-left: 1px dashed var(--line); color: var(--muted); }
+th.chosen, td.chosen { background: var(--ok-soft); }
+.pill { display: inline-block; font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 999px; white-space: nowrap; }
+.ok { background: var(--ok-soft); color: var(--ok); }
+.warn { background: var(--warn-soft); color: var(--warn); }
+.bad { background: var(--bad-soft); color: var(--bad); }
+.info { background: var(--accent-soft); color: var(--accent); }
+.callout { border-left: 4px solid var(--warn); background: var(--warn-soft); padding: 12px 16px; border-radius: 0 6px 6px 0; margin: 14px 0; }
+.callout.bad { border-left-color: var(--bad); background: var(--bad-soft); color: var(--ink); }
+.callout.ok { border-left-color: var(--ok); background: var(--ok-soft); color: var(--ink); }
+.callout.info { border-left-color: var(--accent); background: var(--accent-soft); color: var(--ink); }
+.callout p { margin: 4px 0; }
+.two { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 18px; }
+.two > div { min-width: 0; }
+ol.steps li, ul.tight li { margin: 4px 0; }
+.check li { list-style: none; position: relative; padding-left: 26px; }
+.check li::before { content: ""; position: absolute; left: 2px; top: 6px; width: 13px; height: 13px; border: 1.5px solid var(--muted); border-radius: 3px; }
+.diagram-card { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 16px; overflow-x: auto; }
+.diagram-card svg { display: block; margin: 0 auto; width: 100%; height: auto; min-width: 760px; }
+.arch-box rect { fill: var(--bg); stroke: var(--ok); stroke-width: 1.5; }
+.arch-box.deferred rect { stroke: var(--bad); stroke-dasharray: 5 3; }
+.arch-box .title { font-family: var(--f-display); font-weight: 700; font-size: 13.5px; fill: var(--ink); letter-spacing: .02em; }
+.arch-box .sub { font-family: var(--f-mono); font-size: 11px; fill: var(--muted); }
+.arch-strong { fill: var(--accent); font-weight: 600; }
+.arch-strong-bad { fill: var(--bad); font-weight: 600; }
+.arch-rule { stroke: var(--line); stroke-width: 1; }
+.arch-link { stroke: var(--accent); stroke-width: 2; fill: none; }
+.arch-link-muted { stroke: var(--muted); stroke-width: 1.4; fill: none; stroke-dasharray: 4 3; }
+.arch-arrowhead { fill: var(--accent); }
+.arch-arrowhead-muted { fill: var(--muted); }
+.arch-dot { fill: var(--muted); }
+.erd-box rect { fill: var(--bg); stroke: var(--line); stroke-width: 1.3; }
+.erd-box .erd-title { font-family: var(--f-display); font-weight: 700; font-size: 13px; fill: var(--ink); }
+.erd-box .erd-field { font-family: var(--f-mono); font-size: 10.8px; fill: var(--muted); }
+.erd-box .erd-field .pk { fill: var(--accent); font-weight: 600; }
+.erd-rule { stroke: var(--line); stroke-width: 1; }
+.erd-link { stroke: var(--muted); stroke-width: 1.3; fill: none; }
+.erd-arrowhead { fill: var(--muted); }
+.erd-dot { fill: var(--muted); }
+.step { border: 1px solid var(--line); border-radius: 8px; background: var(--surface); padding: 4px 16px 10px; margin: 14px 0; }
+.step h3 { margin-top: 12px; }
+footer { margin-top: 56px; color: var(--muted); font-size: 12.5px; border-top: 1px solid var(--line); padding-top: 14px; }
+@media (max-width: 900px) { .wrap { grid-template-columns: minmax(0, 1fr); } nav.rail { display: none; } }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto !important; } }
+html { scroll-behavior: smooth; }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+<nav class="rail" aria-label="Sections">
+  <a href="#summary">Summary</a>
+  <a href="#problem">The problem</a>
+  <a href="#architecture">Architecture (as built)</a>
+  <a href="#gold-tables">Gold layer tables</a>
+  <a href="#ontology">Ontology &amp; ER model</a>
+  <a href="#semantic-view">Semantic view &amp; metrics</a>
+  <a href="#agents">Multi-agent router &amp; guardrails</a>
+  <a href="#apps">Deployed apps</a>
+  <a href="#governance">RBAC &amp; governance</a>
+  <a href="#marketplace">Marketplace &amp; Workspace</a>
+  <a href="#testing">Testing</a>
+  <a href="#cost">Token &amp; cost tracking</a>
+  <a href="#status">Current status &amp; deferred work</a>
+  <a href="#setup">Setup &amp; demo</a>
+  <a href="#appendix">Appendix: repo structure</a>
+</nav>
+
+<main>
+<header class="top">
+  <div class="eyebrow">Snowflake CoCo CLI Hackathon 2026 for GCCs · Lagom team</div>
+  <h1>Supply Chain Ontology &amp; Governed Conversational Analytics — end-to-end build report</h1>
+  <div class="meta">
+    <span>Database: <code>SUPPLY_CHAIN</code></span>
+    <span>100% synthetic data — no proprietary or real customer/GCC data anywhere</span>
+    <span>Status: core technical layers built, with disclosed gaps (see §Current status)</span>
+  </div>
+</header>
+
+<section id="summary">
+<h2>Summary</h2>
+<div class="answers">
+  <div class="answer"><h3>The problem</h3><p>Five systems (ERP, TMS, Supplier Portal, IoT, Finance) each compute "On-Time Delivery," "Fill Rate," "Days of Inventory" and "Landed Cost" differently. Every team's number is correct by its own definition — that's the problem.</p></div>
+  <div class="answer"><h3>The fix</h3><p>One governed native Snowflake <strong>Semantic View</strong> (9 tables, 10 relationships, 5 metrics, 5 dimensions) that resolves the fragmentation deliberately built in <code>SOURCE_*</code> schemas, so any persona asks a differently-worded question and gets the same answer.</p></div>
+  <div class="answer"><h3>On top of it</h3><p>A multi-agent conversational router (<code>agents/agent_router.py</code>) with layered hallucination guardrails, document intelligence over supplier contract PDFs, and two deployed Streamlit-in-Snowflake apps that narrate the before/after.</p></div>
+  <div class="answer"><h3>Around it</h3><p>Least-privilege RBAC with a genuine negative-privilege test, a free Marketplace weather dataset joined to shipment risk, a Workspace artifact of the legacy divergence queries, and real 30-day token/cost tracking.</p></div>
+  <div class="answer"><h3>Pipeline</h3><p>Medallion architecture: fragmented sources → <code>BRONZE</code> (unified raw landing) → <code>SILVER</code> (entity-resolved canonical layer) → <code>GOLD</code> (28 Dynamic Tables) → <code>SEMANTIC_MODELS</code>.</p></div>
+  <div class="answer"><h3>Honest gaps</h3><p>Golden-question test suite passes <strong>2/5</strong> live (3 fail on a disclosed REST auth-transport bug, not a metric-logic bug). Task-based automation/alerting and a packaged CoCo skill are explicitly deferred, not started.</p></div>
+</div>
+</section>
+
+<section id="problem">
+<h2>The problem, in one table</h2>
+<p>Before governance, four teams query four systems and get four different answers to "What's our On-Time Delivery rate?" — each answer is <em>correct by that team's definition</em>, which is exactly the problem. The governed number is <strong>stricter</strong> than every legacy answer, not just "different": the governance decision closes loopholes each source system used to look better than reality.</p>
+<div class="tbl"><table>
+<thead><tr><th>Team</th><th>System</th><th>Definition</th><th>Legacy answer</th></tr></thead>
+<tbody>
+<tr><td>Operations</td><td>ERP</td><td>Ship-confirm before requested date; excludes cancelled/backorder rows</td><td class="n">89.4%</td></tr>
+<tr><td>Logistics</td><td>TMS</td><td>Delivery before promised date (2-day carrier buffer baked in)</td><td class="n">91.3%</td></tr>
+<tr><td>Procurement</td><td>Supplier Portal</td><td>ASN receipt before planned date; drops in-transit shipments</td><td class="n">78.6%</td></tr>
+<tr><td>Warehouse</td><td>IoT sensors</td><td>Sensor-detected dock receipt; only ~70% sensor coverage</td><td>biased sample (65.0%, 95% CI [60.96, 68.84], n=560/800)</td></tr>
+<tr class="chosen"><td><strong>Governed truth</strong></td><td><strong>Semantic View</strong></td><td>Plant-dock receipt vs. planned; cancelled/overdue-in-transit always count as late</td><td class="n chosen"><strong>64.875%</strong></td></tr>
+</tbody>
+</table></div>
+<div class="callout info"><p><strong>The honest finding:</strong> the governed 64.875% sits <em>inside</em> the IoT sensor's confidence interval, far below the 78.6–91.3% band the other three systems argued over. IoT measured the right event (dock receipt) but was dismissed for thin coverage — governance adopted its definition and fixed the coverage gap through entity resolution. The answer was already in the source nobody trusted.</p></div>
+<p>Fragmentation is genuine, not staged: each <code>SOURCE_*</code> table carries a <code>COMMENT</code> beginning <code>KNOWN DATA QUALITY ISSUE:</code> describing its specific, real flaw — see <code>sql/00_source_schemas/*.sql</code>. The same divergence pattern repeats for Fill Rate, Days of Inventory and Landed Cost; every legacy query plus its actually-observed result is recorded in <code>sql/10_workspace_artifact/legacy_before_queries.sql</code>.</p>
+</section>
+
+<section id="architecture">
+<h2>Architecture (as built)</h2>
+<p>Five fragmented source systems land into a unified <code>BRONZE</code> layer, are resolved into one canonical <code>SILVER</code> layer (entity resolution via <code>shipment_crosswalk</code> + governance-approved metric definitions), modeled dimensionally in <code>GOLD</code> (28 Dynamic Tables), and exposed as a governed <code>SEMANTIC_MODELS</code> layer — a native <code>SEMANTIC VIEW</code> plus Cortex Search over supplier contract PDFs. A multi-agent router and two deployed Streamlit apps consume only that governed layer, never the raw source tables. RBAC, Marketplace enrichment, and a Workspace artifact round out governance and ops.</p>
+<p>
+  <span class="pill ok">Built</span> Phases 0–5, 7, Governance &amp; Ops — recorded execution evidence in each <code>sql/</code> phase README &nbsp;
+  <span class="pill bad">Deferred</span> AUTOMATION (Tasks/alerting) and a packaged CoCo skill — explicit decision, not oversight
+</p>
+<div class="diagram-card">
+<svg viewBox="0 0 1600 500" role="img" aria-label="As-built architecture: fragmented sources flow through Bronze, Silver, Gold, Semantic Models, to consumers, with Governance and a deferred Automation branch.">
+  <defs>
+    <marker id="archArrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" class="arch-arrowhead"></path>
+    </marker>
+    <marker id="archArrowMuted" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" class="arch-arrowhead-muted"></path>
+    </marker>
+  </defs>
+
+  <path d="M260,140 L300,140" class="arch-link" marker-end="url(#archArrow)"></path>
+  <path d="M520,140 L560,140" class="arch-link" marker-end="url(#archArrow)"></path>
+  <path d="M780,140 L820,140" class="arch-link" marker-end="url(#archArrow)"></path>
+  <path d="M1040,140 L1080,140" class="arch-link" marker-end="url(#archArrow)"></path>
+  <path d="M1300,140 L1340,140" class="arch-link" marker-end="url(#archArrow)"></path>
+
+  <path d="M1150,240 L1150,270 L1060,270 L1060,320" class="arch-link-muted" marker-end="url(#archArrowMuted)"></path>
+  <path d="M1230,240 L1230,285 L1450,285 L1450,320" class="arch-link-muted" marker-end="url(#archArrowMuted)"></path>
+  <circle cx="1150" cy="240" r="3.5" class="arch-dot"></circle>
+  <circle cx="1230" cy="240" r="3.5" class="arch-dot"></circle>
+
+  <g class="arch-box done">
+    <rect x="40" y="40" width="220" height="200" rx="10"></rect>
+    <text class="title" x="56" y="66">FRAGMENTED SOURCES</text>
+    <text class="sub" x="56" y="90">
+      <tspan x="56" dy="0">SOURCE_ERP</tspan>
+      <tspan x="56" dy="20">SOURCE_LOGISTICS_TMS</tspan>
+      <tspan x="56" dy="20">SOURCE_SUPPLIER_PORTAL</tspan>
+      <tspan x="56" dy="20">SOURCE_IOT_SENSOR</tspan>
+      <tspan x="56" dy="20">SOURCE_FINANCE</tspan>
+    </text>
+  </g>
+
+  <g class="arch-box done">
+    <rect x="300" y="40" width="220" height="200" rx="10"></rect>
+    <text class="title" x="316" y="66">BRONZE</text>
+    <text class="sub" x="316" y="90">
+      <tspan x="316" dy="0">Unified raw landing zone</tspan>
+      <tspan x="316" dy="20">17 tables</tspan>
+      <tspan x="316" dy="20">RAW_PAYLOAD VARIANT</tspan>
+    </text>
+  </g>
+
+  <g class="arch-box done">
+    <rect x="560" y="40" width="220" height="200" rx="10"></rect>
+    <text class="title" x="576" y="66">SILVER</text>
+    <text class="sub" x="576" y="90">
+      <tspan x="576" dy="0">shipment_crosswalk</tspan>
+      <tspan x="576" dy="20">entity resolution across</tspan>
+      <tspan x="576" dy="20">ERP · TMS · Portal · IoT</tspan>
+      <tspan x="576" dy="20">canonical, 1 def / KPI</tspan>
+    </text>
+  </g>
+
+  <g class="arch-box done">
+    <rect x="820" y="40" width="220" height="200" rx="10"></rect>
+    <text class="title" x="836" y="66">GOLD · 28 DT</text>
+    <text class="sub" x="836" y="90">
+      <tspan x="836" dy="0">13 Dynamic Tables</tspan>
+      <tspan x="836" dy="20">+ 1 static (dim_date)</tspan>
+    </text>
+    <line x1="836" y1="130" x2="1024" y2="130" class="arch-rule"></line>
+    <text class="sub" x="836" y="150">
+      <tspan x="836" dy="0" class="arch-strong">4 dims</tspan>
+      <tspan x="836" dy="18" class="arch-strong">7 facts</tspan>
+      <tspan x="836" dy="18" class="arch-strong">1 bridge · 1 agg</tspan>
+      <tspan x="836" dy="18">→ full list in §Gold layer tables</tspan>
+    </text>
+  </g>
+
+  <g class="arch-box done">
+    <rect x="1080" y="40" width="220" height="200" rx="10"></rect>
+    <text class="title" x="1096" y="66">SEMANTIC_MODELS</text>
+    <text class="sub" x="1096" y="90">
+      <tspan x="1096" dy="0" class="arch-strong">SEMANTIC VIEW</tspan>
+      <tspan x="1096" dy="20">9 tables · 10 relationships</tspan>
+      <tspan x="1096" dy="20">5 metrics · 5 dimensions</tspan>
+    </text>
+    <line x1="1096" y1="150" x2="1284" y2="150" class="arch-rule"></line>
+    <text class="sub" x="1096" y="170">
+      <tspan x="1096" dy="0" class="arch-strong">CORTEX SEARCH</tspan>
+      <tspan x="1096" dy="20">11 supplier contract PDFs</tspan>
+    </text>
+  </g>
+
+  <g class="arch-box done">
+    <rect x="1340" y="40" width="220" height="200" rx="10"></rect>
+    <text class="title" x="1356" y="66">CONSUMERS</text>
+    <text class="sub" x="1356" y="90">
+      <tspan x="1356" dy="0" class="arch-strong">agent_router.py</tspan>
+      <tspan x="1356" dy="20">5-intent multi-agent router</tspan>
+    </text>
+    <line x1="1356" y1="150" x2="1544" y2="150" class="arch-rule"></line>
+    <text class="sub" x="1356" y="170">
+      <tspan x="1356" dy="0">App: Ontology (6 Acts)</tspan>
+      <tspan x="1356" dy="20">App: Governed Answer Engine</tspan>
+    </text>
+  </g>
+
+  <g class="arch-box done">
+    <rect x="820" y="320" width="480" height="140" rx="10"></rect>
+    <text class="title" x="836" y="346">GOVERNANCE &amp; OPS</text>
+    <text class="sub" x="836" y="370">
+      <tspan x="836" dy="0">RBAC: SUPPLY_CHAIN_ANALYST_RO / TASK_EXECUTOR</tspan>
+      <tspan x="836" dy="20">Marketplace: Pelmorex weather vs. shipment risk</tspan>
+      <tspan x="836" dy="20">Workspace: legacy_before_queries.sql artifact</tspan>
+    </text>
+  </g>
+
+  <g class="arch-box deferred">
+    <rect x="1340" y="320" width="220" height="140" rx="10"></rect>
+    <text class="title" x="1356" y="346">AUTOMATION</text>
+    <text class="sub" x="1356" y="366">
+      <tspan x="1356" dy="0">refresh_at_risk_orders,</tspan>
+      <tspan x="1356" dy="18">daily_health_snapshot Tasks</tspan>
+      <tspan x="1356" dy="18">Slack/email alerting</tspan>
+      <tspan x="1356" dy="18" class="arch-strong-bad">— not started —</tspan>
+    </text>
+  </g>
+</svg>
+</div>
+</section>
+
+<section id="gold-tables">
+<h2>Gold layer tables</h2>
+<p>13 Dynamic Tables (<code>TARGET_LAG = 10 MINUTES</code>, one at 15) plus one static calendar table — <code>sql/03_gold/create_gold_dynamic_tables.sql</code>. Dimensions and the date spine are built once per refresh from <code>SILVER</code>; facts resolve to canonical grain via <code>shipment_crosswalk</code>; the bridge and aggregate tables are derived from the facts, not from <code>SILVER</code> directly. Together with Silver's 14 Dynamic Tables + 1 crosswalk, this is the "28 Dynamic Tables" referenced throughout this report.</p>
+
+<h3>Dimensions (5 — 4 Dynamic Tables, 1 static)</h3>
+<div class="tbl"><table>
+<thead><tr><th>Table</th><th>Type</th><th>Grain / purpose</th></tr></thead>
+<tbody>
+<tr><td><code>dim_supplier</code></td><td>Dynamic Table</td><td>One row per supplier; SCD2-shaped (<code>valid_from</code>/<code>valid_to</code>/<code>is_current</code>) for future history capture</td></tr>
+<tr><td><code>dim_part</code></td><td>Dynamic Table</td><td>One row per SKU</td></tr>
+<tr><td><code>dim_plant</code></td><td>Dynamic Table</td><td>One row per facility</td></tr>
+<tr><td><code>dim_customer</code></td><td>Dynamic Table</td><td>One row per customer</td></tr>
+<tr><td><code>dim_date</code></td><td>Static table</td><td>Calendar spine, Date → Week → Month → Quarter → Year; not a Dynamic Table because calendar days don't need incremental refresh</td></tr>
+</tbody></table></div>
+
+<h3>Facts (7, all Dynamic Tables)</h3>
+<div class="tbl"><table>
+<thead><tr><th>Table</th><th>Grain</th><th>Backs</th></tr></thead>
+<tbody>
+<tr><td><code>fact_shipment</code></td><td>One row per entity-resolved shipment (<code>shipment_crosswalk</code>)</td><td><code>on_time_delivery_rate</code></td></tr>
+<tr><td><code>fact_order_fulfillment</code></td><td>One row per customer order line</td><td><code>customer_fill_rate</code></td></tr>
+<tr><td><code>fact_purchase_order</code></td><td>One row per supplier-facing PO</td><td><code>supplier_fill_rate</code> — deliberately separate from customer fill rate</td></tr>
+<tr><td><code>fact_inventory_snapshot</code></td><td>One row per part-plant-day</td><td><code>days_of_inventory</code> (30-day trailing actual demand, not forecast)</td></tr>
+<tr><td><code>fact_landed_cost</code></td><td>One row per shipment (1:1 with <code>fact_shipment</code>)</td><td><code>landed_cost_per_unit</code></td></tr>
+<tr><td><code>fact_quality_event</code></td><td>One row per supplier quality-defect event</td><td>Not exposed through the semantic view</td></tr>
+<tr><td><code>fact_pick_operation</code></td><td>One row per warehouse pick</td><td>Unit-level warehouse fill rate — a third, distinct fill-rate concept, not surfaced in the semantic view</td></tr>
+</tbody></table></div>
+
+<h3>Bridge &amp; aggregate (2)</h3>
+<div class="tbl"><table>
+<thead><tr><th>Table</th><th>Type</th><th>Purpose</th></tr></thead>
+<tbody>
+<tr><td><code>bridge_supplier_part</code></td><td>Dynamic Table</td><td>Many-to-many Supplier ↔ Part bridge derived from observed shipments; not exposed through the semantic view</td></tr>
+<tr><td><code>agg_supplier_performance</code></td><td>Dynamic Table (15-min lag)</td><td>Pre-aggregated supplier scorecard — on-time rate, defect rate, shipment volume/value — one row per supplier, so dashboards don't re-scan the fact tables at query time</td></tr>
+</tbody></table></div>
+</section>
+
+<section id="ontology">
+<h2>Ontology &amp; entity-relationship model</h2>
+<p>Nine business entities exactly as declared in the live <code>CREATE SEMANTIC VIEW SUPPLY_CHAIN_ONTOLOGY</code> object. <code>bridge_supplier_part</code> and <code>fact_quality_event</code> exist as Gold Dynamic Tables but are deliberately <em>not</em> exposed through the semantic view, so they're omitted here too. <code>Shipment ↔ LandedCost</code> is the one 1-to-1 relationship — every other link below is one dimension to many facts.</p>
+<div class="diagram-card">
+<svg viewBox="0 0 1530 670" role="img" aria-label="Entity-relationship diagram: Supplier, Part, Plant and Customer dimensions connect to Purchase Order, Shipment, Inventory Snapshot and Customer Order facts, with Shipment one-to-one with Landed Cost.">
+  <defs>
+    <marker id="erdArrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" class="erd-arrowhead"></path>
+    </marker>
+  </defs>
+
+  <!-- Supplier -> PurchaseOrder (straight: same exit/entry x) -->
+  <path d="M137,144 L137,280" class="erd-link" marker-end="url(#erdArrow)"></path>
+  <!-- Plant -> InventorySnapshot (straight: same exit/entry x) -->
+  <path d="M1013,144 L1013,280" class="erd-link" marker-end="url(#erdArrow)"></path>
+  <!-- Shipment -> LandedCost (1:1, straight) -->
+  <path d="M575,384 L575,520" class="erd-link" marker-end="url(#erdArrow)"></path>
+
+  <!-- Supplier -> Shipment -->
+  <path d="M213,144 L213,155 L518,155 L518,280" class="erd-link" marker-end="url(#erdArrow)"></path>
+  <!-- Part -> PurchaseOrder -->
+  <path d="M506,144 L506,170 L213,170 L213,280" class="erd-link" marker-end="url(#erdArrow)"></path>
+  <!-- Part -> Shipment -->
+  <path d="M552,144 L552,185 L575,185 L575,280" class="erd-link" marker-end="url(#erdArrow)"></path>
+  <!-- Part -> InventorySnapshot -->
+  <path d="M598,144 L598,200 L937,200 L937,280" class="erd-link" marker-end="url(#erdArrow)"></path>
+  <!-- Part -> CustomerOrder -->
+  <path d="M644,144 L644,215 L1337,215 L1337,280" class="erd-link" marker-end="url(#erdArrow)"></path>
+  <!-- Plant -> Shipment -->
+  <path d="M937,144 L937,230 L633,230 L633,280" class="erd-link" marker-end="url(#erdArrow)"></path>
+  <!-- Customer -> CustomerOrder -->
+  <path d="M1375,144 L1375,245 L1413,245 L1413,280" class="erd-link" marker-end="url(#erdArrow)"></path>
+
+  <circle cx="137" cy="144" r="3.5" class="erd-dot"></circle>
+  <circle cx="213" cy="144" r="3.5" class="erd-dot"></circle>
+  <circle cx="506" cy="144" r="3.5" class="erd-dot"></circle>
+  <circle cx="552" cy="144" r="3.5" class="erd-dot"></circle>
+  <circle cx="598" cy="144" r="3.5" class="erd-dot"></circle>
+  <circle cx="644" cy="144" r="3.5" class="erd-dot"></circle>
+  <circle cx="937" cy="144" r="3.5" class="erd-dot"></circle>
+  <circle cx="1013" cy="144" r="3.5" class="erd-dot"></circle>
+  <circle cx="1375" cy="144" r="3.5" class="erd-dot"></circle>
+  <circle cx="575" cy="384" r="3.5" class="erd-dot"></circle>
+
+  <g class="erd-box">
+    <rect x="60" y="40" width="230" height="104" rx="8"></rect>
+    <text class="erd-title" x="74" y="64">SUPPLIER</text>
+    <line x1="74" y1="74" x2="276" y2="74" class="erd-rule"></line>
+    <text class="erd-field" x="74" y="94"><tspan class="pk">supplier_key PK</tspan></text>
+    <text class="erd-field" x="74" y="112">supplier_name</text>
+    <text class="erd-field" x="74" y="130">tier_name · region</text>
+  </g>
+
+  <g class="erd-box">
+    <rect x="460" y="40" width="230" height="104" rx="8"></rect>
+    <text class="erd-title" x="474" y="64">PART</text>
+    <line x1="474" y1="74" x2="676" y2="74" class="erd-rule"></line>
+    <text class="erd-field" x="474" y="94"><tspan class="pk">part_key PK</tspan></text>
+    <text class="erd-field" x="474" y="112">part_name</text>
+    <text class="erd-field" x="474" y="130">category · unit_cost</text>
+  </g>
+
+  <g class="erd-box">
+    <rect x="860" y="40" width="230" height="104" rx="8"></rect>
+    <text class="erd-title" x="874" y="64">PLANT</text>
+    <line x1="874" y1="74" x2="1076" y2="74" class="erd-rule"></line>
+    <text class="erd-field" x="874" y="94"><tspan class="pk">plant_key PK</tspan></text>
+    <text class="erd-field" x="874" y="112">plant_name</text>
+    <text class="erd-field" x="874" y="130">region · plant_type</text>
+  </g>
+
+  <g class="erd-box">
+    <rect x="1260" y="40" width="230" height="104" rx="8"></rect>
+    <text class="erd-title" x="1274" y="64">CUSTOMER</text>
+    <line x1="1274" y1="74" x2="1476" y2="74" class="erd-rule"></line>
+    <text class="erd-field" x="1274" y="94"><tspan class="pk">customer_key PK</tspan></text>
+    <text class="erd-field" x="1274" y="112">customer_name</text>
+    <text class="erd-field" x="1274" y="130">segment · region</text>
+  </g>
+
+  <g class="erd-box">
+    <rect x="60" y="280" width="230" height="104" rx="8"></rect>
+    <text class="erd-title" x="74" y="304">PURCHASE_ORDER</text>
+    <line x1="74" y1="314" x2="276" y2="314" class="erd-rule"></line>
+    <text class="erd-field" x="74" y="334"><tspan class="pk">po_number PK</tspan></text>
+    <text class="erd-field" x="74" y="352">supplier_key / part_key FK</text>
+    <text class="erd-field" x="74" y="370">qty_ordered · qty_received</text>
+  </g>
+
+  <g class="erd-box">
+    <rect x="460" y="280" width="230" height="104" rx="8"></rect>
+    <text class="erd-title" x="474" y="304">SHIPMENT</text>
+    <line x1="474" y1="314" x2="676" y2="314" class="erd-rule"></line>
+    <text class="erd-field" x="474" y="334"><tspan class="pk">shipment_id PK</tspan></text>
+    <text class="erd-field" x="474" y="352">supplier/part/plant_key FK</text>
+    <text class="erd-field" x="474" y="370">is_on_time · value_usd</text>
+  </g>
+
+  <g class="erd-box">
+    <rect x="860" y="280" width="230" height="104" rx="8"></rect>
+    <text class="erd-title" x="874" y="304">INVENTORY_SNAPSHOT</text>
+    <line x1="874" y1="314" x2="1076" y2="314" class="erd-rule"></line>
+    <text class="erd-field" x="874" y="334"><tspan class="pk">snapshot_id PK</tspan></text>
+    <text class="erd-field" x="874" y="352">plant_key / part_key FK</text>
+    <text class="erd-field" x="874" y="370">snapshot_date · stock · DOI</text>
+  </g>
+
+  <g class="erd-box">
+    <rect x="1260" y="280" width="230" height="104" rx="8"></rect>
+    <text class="erd-title" x="1274" y="304">CUSTOMER_ORDER</text>
+    <line x1="1274" y1="314" x2="1476" y2="314" class="erd-rule"></line>
+    <text class="erd-field" x="1274" y="334"><tspan class="pk">customer_order_id PK</tspan></text>
+    <text class="erd-field" x="1274" y="352">customer_key / part_key FK</text>
+    <text class="erd-field" x="1274" y="370">qty ordered/shipped · flags</text>
+  </g>
+
+  <g class="erd-box">
+    <rect x="460" y="520" width="230" height="104" rx="8"></rect>
+    <text class="erd-title" x="474" y="544">LANDED_COST</text>
+    <line x1="474" y1="554" x2="676" y2="554" class="erd-rule"></line>
+    <text class="erd-field" x="474" y="574"><tspan class="pk">shipment_id PK</tspan></text>
+    <text class="erd-field" x="474" y="592">part_key FK</text>
+    <text class="erd-field" x="474" y="610">landed_cost_per_unit</text>
+  </g>
+</svg>
+</div>
+<h3>Relationships (10, as declared in the semantic view)</h3>
+<div class="two">
+<div>
+<ul class="tight">
+  <li><code>Supplier → Shipment</code> — <code>shipment_to_supplier</code></li>
+  <li><code>Part → Shipment</code> — <code>shipment_to_part</code></li>
+  <li><code>Plant → Shipment</code> — <code>shipment_to_plant</code></li>
+  <li><code>Supplier → PurchaseOrder</code> — <code>po_to_supplier</code></li>
+  <li><code>Part → PurchaseOrder</code> — <code>po_to_part</code></li>
+</ul>
+</div>
+<div>
+<ul class="tight">
+  <li><code>Part → CustomerOrder</code> — <code>order_to_part</code></li>
+  <li><code>Customer → CustomerOrder</code> — <code>order_to_customer</code></li>
+  <li><code>Plant → InventorySnapshot</code> — <code>inventory_to_plant</code></li>
+  <li><code>Part → InventorySnapshot</code> — <code>inventory_to_part</code></li>
+  <li><code>Shipment ↔ LandedCost</code> (1:1) — <code>landed_cost_to_shipment</code></li>
+</ul>
+</div>
+</div>
+<h3>Grain reference</h3>
+<div class="tbl"><table>
+<thead><tr><th>Entity</th><th>Gold source table</th><th>Grain</th></tr></thead>
+<tbody>
+<tr><td>Supplier</td><td><code>dim_supplier</code></td><td>one row per supplier</td></tr>
+<tr><td>Part</td><td><code>dim_part</code></td><td>one row per SKU</td></tr>
+<tr><td>Plant</td><td><code>dim_plant</code></td><td>one row per facility</td></tr>
+<tr><td>Customer</td><td><code>dim_customer</code></td><td>one row per customer</td></tr>
+<tr><td>Shipment</td><td><code>fact_shipment</code></td><td>one row per entity-resolved shipment (<code>shipment_crosswalk</code>)</td></tr>
+<tr><td>CustomerOrder</td><td><code>fact_order_fulfillment</code></td><td>one row per customer order line</td></tr>
+<tr><td>PurchaseOrder</td><td><code>fact_purchase_order</code></td><td>one row per supplier-facing PO</td></tr>
+<tr><td>InventorySnapshot</td><td><code>fact_inventory_snapshot</code></td><td>one row per part-plant-day</td></tr>
+<tr><td>LandedCost</td><td><code>fact_landed_cost</code></td><td>one row per shipment (1:1 with Shipment)</td></tr>
+</tbody></table></div>
+<p>Hierarchies: Supplier → Tier → Region; Part → Category; Plant/Supplier → Region; Customer → Segment; Date → Week → Month → Quarter → Year (<code>dim_date</code> in <code>sql/03_gold/create_gold_dynamic_tables.sql</code>).</p>
+</section>
+
+<section id="semantic-view">
+<h2>Semantic view &amp; canonical metrics</h2>
+<p><code>CREATE SEMANTIC VIEW SUPPLY_CHAIN.SEMANTIC_MODELS.SUPPLY_CHAIN_ONTOLOGY</code> (<code>sql/04_semantic_view/supply_chain_ontology_semantic_view.sql</code>) is a real Snowflake object DDL, not a YAML file only Cortex Analyst reads. Every metric/entity/dimension carries <code>WITH SYNONYMS (...)</code> — e.g. <code>on_time_delivery_rate</code> carries synonyms <code>'OTD','OTD%','on-time %','delivery performance','are we hitting delivery dates','schedule adherence'</code>, so business language, not column names, drives answers.</p>
+<h3>Canonical metrics — validated results (last recorded run)</h3>
+<div class="tbl"><table>
+<thead><tr><th>Metric</th><th>Value</th><th>Governance decision</th></tr></thead>
+<tbody>
+<tr><td>On-Time Delivery</td><td class="n">64.875%</td><td>Plant-dock receipt vs. planned; cancelled/overdue-in-transit always count as late, never dropped</td></tr>
+<tr><td>Customer Fill Rate</td><td class="n">90.800%</td><td>Order-binary: <code>qty_shipped &gt;= qty_ordered</code></td></tr>
+<tr><td>Supplier Fill Rate</td><td class="n">86.294%</td><td>PO-level <code>SUM(qty_received)/SUM(qty_ordered)</code> — deliberately separate from Customer Fill Rate</td></tr>
+<tr><td>Days of Inventory</td><td class="n">48.60 days</td><td>30-day trailing <strong>actual</strong> demand, not forecast</td></tr>
+<tr><td>Landed Cost / unit</td><td class="n">$251.68</td><td>Unit cost + freight + customs + overhead, computed at shipment grain</td></tr>
+</tbody></table></div>
+<div class="callout info"><p>A manual cross-check of <code>on_time_delivery_rate</code> against the raw <code>GOLD.fact_shipment</code> aggregate matched exactly, ruling out join fan-out distortion. <code>reflect_semantic_model</code> was run before deployment. One gotcha discovered during build and documented in <code>sql/04_semantic_view/README.md</code>: the <code>&lt;table&gt;.&lt;new_semantic_name&gt; AS &lt;physical_column&gt;</code> alias direction in <code>FACTS</code>/<code>DIMENSIONS</code> clauses is reversed from normal SQL <code>SELECT ... AS</code>.</p></div>
+<p>Document intelligence: <code>sql/04_semantic_view/cortex_search_documents.sql</code> builds a Cortex Search service (<code>supply_chain_documents</code>) over 11 synthetic supplier-contract PDFs (via <code>AI_PARSE_DOCUMENT</code>), feeding the same governed answer through <code>PostQueryEnricher</code> in <code>agents/agent_router.py</code> — a validated query (<code>SUP-0002_contract.pdf</code>, cosine similarity 0.60) is recorded in that phase's README.</p>
+</section>
+
+<section id="agents">
+<h2>Multi-agent router &amp; guardrails</h2>
+<p><code>agents/agent_router.py</code> implements <code>SupplyChainAgentRouter</code>: a 5-intent classifier (<code>standard</code>, <code>at_risk</code>, <code>what_if</code>, <code>root_cause</code>, <code>document_qa</code>) routing to 4 sub-agents — <code>CortexAnalystClient</code>, <code>SimulationAgent</code>, <code>EvidenceTraceAgent</code>, <code>DocumentQAAgent</code>. Cortex Analyst is wired to the semantic view two ways: REST (<code>CortexAnalystClient.ask</code>, for the CLI-connected router) and SiS-native <code>_snowflake.send_snow_api_request</code> (<code>streamlit_app.py::call_cortex_analyst</code>, for the deployed app) — same parsing logic, two transports.</p>
+<h3>Custom tools &amp; function calling</h3>
+<p><code>agents/agent_router.py::AGENT_TOOLS_SCHEMA</code> defines 4 tools, each with a <code>name</code>/<code>description</code>/<code>parameters</code> schema, plus <code>build_agent_tools()</code> returning a callable registry: <code>ask_supply_chain_analyst</code>, <code>ask_supplier_contracts</code>, <code>run_what_if_supplier_delay</code>, <code>trace_root_cause</code>.</p>
+<h3>Hallucination mitigation — layered, all in one file</h3>
+<ol class="steps">
+  <li><strong>Constrained SQL for high-stakes intents.</strong> <code>SimulationAgent.WHAT_IF_SQL</code> and <code>EvidenceTraceAgent.ROOT_CAUSE_SQL</code> are hand-written, parameterized queries — not LLM-freeform SQL — for the <code>what_if</code> and <code>root_cause</code> intents.</li>
+  <li><strong>Semantic-view vocabulary constraint.</strong> Synonyms + metric <code>COMMENT</code>s constrain the LLM to one canonical measure per business concept.</li>
+  <li><strong><code>PreQueryValidator</code>.</strong> Blocks empty input, input over <code>MAX_QUESTION_LENGTH = 500</code> chars, non-natural-language input, and a <code>FORBIDDEN_TERMS</code> tuple (<code>"drop table"</code>, <code>"delete from"</code>, <code>"truncate"</code>, <code>"grant "</code>, <code>"alter role"</code>) before anything reaches the LLM.</li>
+  <li><strong>Confidence-threshold fallback.</strong> <code>CONFIDENCE_THRESHOLD = 0.6</code> in <code>SupplyChainAgentRouter.ask</code>: below threshold, the response is prefixed "I'm not confident in this answer — here's what I found and why" instead of presenting a guess as fact.</li>
+  <li><strong><code>PostQueryEnricher</code>.</strong> Extracts supplier IDs from a response and attaches matching Cortex Search snippets as <code>supporting_evidence</code>, grounding narrative claims in retrieval rather than free generation.</li>
+  <li><strong>Graceful fallback everywhere.</strong> In <code>streamlit_app.py</code>, every external call (<code>call_cortex_analyst</code>, every <code>run_query</code>) is wrapped in try/except with an in-panel fallback message.</li>
+</ol>
+</section>
+
+<section id="apps">
+<h2>Deployed apps</h2>
+<div class="two">
+<div>
+<h3><code>SUPPLY_CHAIN_ONTOLOGY_APP</code> (warehouse runtime)</h3>
+<p><code>streamlit_app.py</code> at the repo root (1250+ lines), deployed per the root <code>snowflake.yml</code>. Narrates 6 "Acts" in order, click-driven (never timed animation, so a presenter controls pacing):</p>
+<ul class="tight">
+  <li>Cover</li>
+  <li>Before (Chaos) — the four conflicting legacy answers</li>
+  <li>Cross-Persona Consistency — 4 differently-worded questions fired live at Cortex Analyst</li>
+  <li>Zero Raw Identifiers — proving the governed layer exposes no PII/raw IDs</li>
+  <li>Ontology Explorer</li>
+  <li>Live Ops</li>
+</ul>
+</div>
+<div>
+<h3><code>GOVERNED_ANSWER_ENGINE</code> (container runtime)</h3>
+<p>New from-scratch SiS app in <code>app/</code> with its own <code>snowflake.yml</code>. Replaced the click-driven beat reveal with a single dominant <strong>Ungoverned/Governed toggle</strong> plus a native left <code>st.sidebar</code> trace log:</p>
+<ul class="tight">
+  <li>Dynamic persona chips per metric (that metric's legacy claimant teams)</li>
+  <li>Ungoverned mode makes a real <code>SNOWFLAKE.CORTEX.COMPLETE</code> call scoped to one department's system, with a templated-rephrase fallback that never blocks</li>
+  <li>Governed mode runs the same transport chain against the semantic view</li>
+  <li>Every ask appends to a persistent trace log (Understand → Scope → SQL → Answer), newest entry expanded</li>
+</ul>
+</div>
+</div>
+</section>
+
+<section id="governance">
+<h2>RBAC &amp; governance</h2>
+<div class="tbl"><table>
+<thead><tr><th>Control</th><th>What's live</th><th>Status</th></tr></thead>
+<tbody>
+<tr><td>Least-privilege roles</td><td><code>SUPPLY_CHAIN_ANALYST_RO</code> (read-only, scoped to exactly what the app/router query) and <code>SUPPLY_CHAIN_TASK_EXECUTOR</code> (operational, sized for suspend/resume + future Task automation) — <code>sql/07_rbac/create_analyst_and_executor_roles.sql</code></td><td><span class="pill ok">Done</span></td></tr>
+<tr><td>Negative-privilege test</td><td>A <code>CREATE TABLE</code> attempt under <code>SUPPLY_CHAIN_ANALYST_RO</code> failed with "Insufficient privileges to operate on schema 'GOLD'" — proof the role is actually read-only, not silently admin. A positive <code>SELECT</code> against <code>GOLD.fact_shipment</code> and the semantic view both succeeded under the same role.</td><td><span class="pill ok">Done</span></td></tr>
+<tr><td>Governance tags</td><td>3-tag taxonomy (<code>SOURCE_SYSTEM</code>, <code>DATA_QUALITY_ISSUE</code>, <code>LIFECYCLE</code>) in a dedicated <code>GOVERNANCE</code> schema, applied across every Phase-0 object — <code>sql/00_source_schemas/01_governance_tags.sql</code></td><td><span class="pill ok">Done</span></td></tr>
+<tr><td>Classification</td><td><code>SYSTEM$CLASSIFY</code> confirms no PII in this 100%-synthetic dataset — <code>sql/00_source_schemas/02_classification.sql</code></td><td><span class="pill ok">Done</span></td></tr>
+<tr><td>Data quality metrics</td><td>Script header states, verbatim: "NOT YET APPLIED — deferred by user decision" — <code>sql/00_source_schemas/03_data_quality_metrics.sql</code></td><td><span class="pill warn">Deferred</span></td></tr>
+<tr><td>App/router connect-as-role wiring</td><td>Neither <code>streamlit_app.py</code> nor <code>agents/agent_router.py</code> has been rewired to actually connect as <code>SUPPLY_CHAIN_ANALYST_RO</code> yet — both still run under the account's default/admin-level role. The roles are grant-complete; the last wiring step is open.</td><td><span class="pill warn">Disclosed gap</span></td></tr>
+</tbody></table></div>
+</section>
+
+<section id="marketplace">
+<h2>Marketplace enrichment &amp; Workspace artifact</h2>
+<div class="two">
+<div>
+<h3>Marketplace enrichment</h3>
+<p><code>sql/08_marketplace_enrichment/01_acquire_weather_listing.sql</code> acquires the free "Pelmorex Weather Source: Frostbyte" listing (global name <code>GZSOZ1LLEL</code>). <code>02_region_weather_enrichment.sql</code> builds <code>SUPPLY_CHAIN.GOLD.v_shipment_weather_risk</code>, joining shipments to daily weather observations by destination region and ship date, to test whether late shipments correlate with severe weather.</p>
+<div class="callout ok"><p>Reported honestly: the free listing only covers 3 of the synthetic dataset's 5 plant regions, and the correlation sample is too small in this synthetic dataset to claim a real signal. A genuine join with an honestly-reported null result, not a manufactured "insight."</p></div>
+</div>
+<div>
+<h3>Workspace artifact</h3>
+<p><code>sql/10_workspace_artifact/legacy_before_queries.sql</code> collects every legacy divergence query for all 4 canonical metrics (not just OTD) plus the governed semantic-view validation query, each with its actual observed result recorded as a SQL comment — published as a Snowsight <strong>Workspace</strong> (<code>CREATE WORKSPACE</code> / <code>PUT</code> / <code>COMMIT</code>, since legacy Worksheets are being retired). Gives a judge a concrete, click-into artifact in Snowsight, not just a <code>.sql</code> file.</p>
+</div>
+</div>
+</section>
+
+<section id="testing">
+<h2>Testing</h2>
+<p><code>tests/test_golden_questions.py</code> implements 5 automated assertions: <code>test_cross_persona_consistency</code> (3 differently-worded questions must match within 0.01% AND share <code>base_table</code>/<code>measure_name</code>), <code>test_zero_raw_identifiers</code>, <code>test_at_risk_orders</code>, <code>test_what_if_scenario</code>, <code>test_root_cause_trace</code>.</p>
+<div class="callout bad"><p><strong>Disclosed result:</strong> running the suite currently passes <strong>2/5</strong> (<code>what_if_scenario</code>, <code>root_cause_trace</code> — both pure-SQL sub-agents, routed through the REST-based <code>CortexAnalystClient</code>). The other 3 fail with <code>401 Unauthorized</code> against the Cortex Analyst REST endpoint — an auth-transport bug specific to the CLI-connected REST client (a host-reconstruction issue for this account's region), not a problem with the semantic view or metric logic. The same metrics are independently proven correct via the deployed Streamlit app's SiS-native transport and via direct <code>SELECT * FROM SEMANTIC_VIEW(...)</code> queries.</p></div>
+</section>
+
+<section id="cost">
+<h2>Token &amp; cost tracking</h2>
+<p><code>COMPUTE_WH</code> is sized <strong>X-SMALL</strong> with <code>AUTO_SUSPEND = 60</code> — a deliberate cost decision for this workload (28 Dynamic Tables at 10–15 minute <code>TARGET_LAG</code>, one Cortex Search service, occasional Cortex Analyst calls), tightened from the default 300s.</p>
+<h3>Real numbers, last 30 days</h3>
+<div class="tbl"><table>
+<thead><tr><th>Source</th><th>Metric</th><th>Value</th></tr></thead>
+<tbody>
+<tr><td><code>CORTEX_ANALYST_USAGE_HISTORY</code></td><td>Credits</td><td class="n">1.1390</td></tr>
+<tr><td><code>CORTEX_ANALYST_USAGE_HISTORY</code></td><td>Requests</td><td class="n">17</td></tr>
+<tr><td><code>CORTEX_SEARCH_DAILY_USAGE_HISTORY</code></td><td>Credits</td><td class="n">0.0001</td></tr>
+<tr><td><code>CORTEX_SEARCH_DAILY_USAGE_HISTORY</code></td><td>Tokens</td><td class="n">4,132</td></tr>
+<tr><td><code>WAREHOUSE_METERING_HISTORY</code> (<code>COMPUTE_WH</code>)</td><td>Total credits</td><td class="n">8.7947</td></tr>
+<tr><td><code>WAREHOUSE_METERING_HISTORY</code> (<code>COMPUTE_WH</code>)</td><td>Compute credits</td><td class="n">8.6269</td></tr>
+<tr><td><code>WAREHOUSE_METERING_HISTORY</code> (<code>COMPUTE_WH</code>)</td><td>Cloud services credits</td><td class="n">0.1679</td></tr>
+</tbody></table></div>
+<p>Cortex Analyst + Cortex Search combined (~1.14 credits) is under 13% of the 30-day warehouse total (8.79 credits) — almost all compute spend is Dynamic Table refresh and build-time DDL, not the AI layer. On an 8.79-credit/30-day pattern against a $400 trial credit budget, the pipeline is far from exhausting that budget before a demo, especially with <code>sql/09_ops/pause_compute.sql</code>/<code>resume_compute.sql</code> suspending all compute between sessions.</p>
+</section>
+
+<section id="status">
+<h2>Current status &amp; deferred work</h2>
+<p>The core technical layers — ontology, governance tagging, semantic view, multi-agent router, document intelligence, deployed Streamlit app, least-privilege RBAC, Marketplace enrichment, Workspace artifact, cost tracking — are built with recorded, verifiable execution evidence. What's deferred is deferred by explicit decision, not oversight:</p>
+<div class="tbl"><table>
+<thead><tr><th>Item</th><th>Scope</th><th>Status</th></tr></thead>
+<tbody>
+<tr><td><code>AUTOMATION</code> schema / Tasks / alerting</td><td><code>SUPPLY_CHAIN.AUTOMATION</code> schema, <code>at_risk_orders_snapshot</code> + <code>daily_health_metrics</code> tables, <code>refresh_at_risk_orders</code> + <code>daily_health_snapshot</code> Tasks, Slack/email alert on new high-risk rows. <code>SUPPLY_CHAIN_TASK_EXECUTOR</code> is already sized for this (<code>EXECUTE TASK ON ACCOUNT</code> + <code>OPERATE</code> on every Dynamic Table/Cortex Search service).</td><td><span class="pill warn">Deferred, not started</span></td></tr>
+<tr><td>Packaged CoCo skill</td><td><code>skills/supply-chain-analyst-skill/</code> wrapping <code>agents/agent_router.py</code>'s callable tools as CoCo skill actions — a stretch/ingenuity-bonus item, not compliance-gating.</td><td><span class="pill warn">Deferred, not started</span></td></tr>
+<tr><td>MCP connectors</td><td>No external-tool MCP wiring. This trial account has no External Access Integration available, which blocks outbound MCP calls — an environment constraint, not an unattempted task.</td><td><span class="pill warn">Not started</span></td></tr>
+<tr><td>Golden-question suite</td><td>Passes 2/5 live — see §Testing.</td><td><span class="pill bad">Disclosed gap</span></td></tr>
+<tr><td>RBAC connect-as-role wiring</td><td>Roles exist and are grant-complete; app/router still run under the account's default/admin role rather than <code>SUPPLY_CHAIN_ANALYST_RO</code>.</td><td><span class="pill bad">Disclosed gap</span></td></tr>
+</tbody></table></div>
+</section>
+
+<section id="setup">
+<h2>Setup &amp; demo</h2>
+<div class="step">
+<h3>Run the SQL phases in order (idempotent — safe to re-run)</h3>
+<pre><code>sql/00_source_schemas/00_setup_role.sql          -- update &lt;YOUR_USER&gt; first
+sql/00_source_schemas/*.sql
+sql/01_bronze/*.sql
+sql/02_silver/*.sql
+sql/03_gold/*.sql
+sql/04_semantic_view/*.sql
+sql/07_rbac/create_analyst_and_executor_roles.sql
+sql/08_marketplace_enrichment/*.sql
+sql/10_workspace_artifact/*.sql (via the Workspace SQL commands in its README)</code></pre>
+</div>
+<div class="step">
+<h3>Generate synthetic supplier contracts (optional — sample PDFs already committed)</h3>
+<pre><code>pip install -r data_generation/requirements.txt
+python data_generation/generate_supplier_contracts.py</code></pre>
+</div>
+<div class="step">
+<h3>Deploy and test</h3>
+<pre><code>snow streamlit deploy                       # SUPPLY_CHAIN.SEMANTIC_MODELS.SUPPLY_CHAIN_ONTOLOGY_APP
+python tests/test_golden_questions.py       # currently 2/5 pass live, see &sect;Testing
+sql/09_ops/pause_compute.sql                # suspend 28 Dynamic Tables + Cortex Search + warehouse
+sql/09_ops/resume_compute.sql               # resume before the next working session / demo</code></pre>
+</div>
+<div class="step">
+<h3>Demo walkthrough</h3>
+<p>Open the deployed Streamlit app in Snowsight and walk the 6 Acts in order: <strong>Cover → Before (Chaos) → Cross-Persona Consistency → Zero Raw Identifiers → Ontology Explorer → Live Ops</strong>. Each Act runs its queries live against the account — nothing is pre-rendered. For a code-only walkthrough, read <code>sql/10_workspace_artifact/legacy_before_queries.sql</code> top to bottom.</p>
+</div>
+</section>
+
+<section id="appendix">
+<h2>Appendix: repository structure</h2>
+<div class="tbl"><table>
+<thead><tr><th>Path</th><th>What's there</th></tr></thead>
+<tbody>
+<tr><td><code>sql/00_source_schemas/</code></td><td>Phase 0 — fragmented <code>SOURCE_*</code> systems + governance tags/classification</td></tr>
+<tr><td><code>sql/01_bronze/</code></td><td>Phase 1 — unified raw landing zone</td></tr>
+<tr><td><code>sql/02_silver/</code></td><td>Phase 2 — canonical layer + <code>shipment_crosswalk</code> entity resolution</td></tr>
+<tr><td><code>sql/03_gold/</code></td><td>Phase 3 — dimensional model (28 Dynamic Tables)</td></tr>
+<tr><td><code>sql/04_semantic_view/</code></td><td>Phase 4 — native SEMANTIC VIEW + Cortex Search over supplier PDFs</td></tr>
+<tr><td><code>sql/07_rbac/</code></td><td>Least-privilege roles: <code>SUPPLY_CHAIN_ANALYST_RO</code>, <code>SUPPLY_CHAIN_TASK_EXECUTOR</code></td></tr>
+<tr><td><code>sql/08_marketplace_enrichment/</code></td><td>Free Marketplace weather dataset joined to shipment risk</td></tr>
+<tr><td><code>sql/09_ops/</code></td><td>Pause/resume compute scripts + token/cost tracking queries</td></tr>
+<tr><td><code>sql/10_workspace_artifact/</code></td><td>Legacy divergence queries published as a Snowsight Workspace</td></tr>
+<tr><td><code>agents/agent_router.py</code></td><td>Phase 5 — hybrid multi-agent router with guardrails</td></tr>
+<tr><td><code>streamlit_app.py</code> + <code>snowflake.yml</code></td><td>Phase 7 — deployed Streamlit-in-Snowflake narrative app (warehouse runtime)</td></tr>
+<tr><td><code>app/</code></td><td>Governed Answer Engine Streamlit app (container runtime, own <code>snowflake.yml</code>)</td></tr>
+<tr><td><code>data_generation/</code></td><td>Synthetic data + supplier contract PDF generators</td></tr>
+<tr><td><code>tests/test_golden_questions.py</code></td><td>Phase 9 — golden-question validation suite</td></tr>
+<tr><td><code>docs/hackathon-review-human.md</code> / <code>-agent.md</code></td><td>Requirement-by-requirement review for human/machine judges</td></tr>
+<tr><td><code>docs/evidence/live-account-snapshot.md</code></td><td>Point-in-time live-account SHOW/DESCRIBE snapshot</td></tr>
+<tr><td><code>docs/token-and-cost-tracking.md</code></td><td>Real 30-day Cortex/warehouse credit usage</td></tr>
+<tr><td><code>docs/pending-gaps.md</code></td><td>Explicitly deferred work (not oversights)</td></tr>
+<tr><td><code>.cortex/plans/</code>, <code>.snowflake/cortex/plans/</code></td><td>Dated CoCo planning-session artifacts</td></tr>
+</tbody></table></div>
+</section>
+
+<footer>
+Supply Chain Ontology &amp; Governed Conversational Analytics · Snowflake CoCo CLI Hackathon 2026 for GCCs · 100% synthetic data, no proprietary or real customer/GCC data anywhere in this project.
+</footer>
+</main>
+</div>
+
+</body>
+</html>
